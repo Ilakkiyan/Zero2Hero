@@ -7,10 +7,14 @@ import { getGeminiKey, setGeminiKey, clearGeminiKey } from "@/lib/apiClient";
  * Header control for bring-your-own-key. Shows whether a key is set; the modal
  * lets the user paste/save/clear their own Gemini key (stored in localStorage).
  */
+type Status = "idle" | "checking" | "invalid";
+
 export default function ApiKeyButton() {
   const [open, setOpen] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const [value, setValue] = useState("");
+  const [status, setStatus] = useState<Status>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     setHasKey(!!getGeminiKey());
@@ -18,20 +22,50 @@ export default function ApiKeyButton() {
 
   function openModal() {
     setValue(getGeminiKey());
+    setStatus("idle");
+    setErrorMsg(null);
     setOpen(true);
   }
 
-  function save() {
+  // Verify the key with Google before saving; an empty value clears the key.
+  async function save() {
     const k = value.trim();
-    setGeminiKey(k);
-    setHasKey(!!k);
-    setOpen(false);
+    setErrorMsg(null);
+
+    if (!k) {
+      clear();
+      setOpen(false);
+      return;
+    }
+
+    setStatus("checking");
+    try {
+      const res = await fetch("/api/verify-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-gemini-key": k },
+      });
+      const data = (await res.json()) as { valid: boolean; error?: string };
+      if (data.valid) {
+        setGeminiKey(k);
+        setHasKey(true);
+        setStatus("idle");
+        setOpen(false);
+      } else {
+        setStatus("invalid");
+        setErrorMsg(data.error || "That key didn't work.");
+      }
+    } catch {
+      setStatus("invalid");
+      setErrorMsg("Couldn't verify the key — check your connection.");
+    }
   }
 
   function clear() {
     clearGeminiKey();
     setHasKey(false);
     setValue("");
+    setStatus("idle");
+    setErrorMsg(null);
   }
 
   return (
@@ -72,18 +106,27 @@ export default function ApiKeyButton() {
             <input
               type="password"
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => {
+                setValue(e.target.value);
+                if (status === "invalid") {
+                  setStatus("idle");
+                  setErrorMsg(null);
+                }
+              }}
               onKeyDown={(e) => e.key === "Enter" && save()}
               placeholder="AIza… or AQ.…"
               className="mt-3 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
             />
 
+            {errorMsg && <p className="mt-2 text-xs text-risk-high">{errorMsg}</p>}
+
             <div className="mt-4 flex items-center gap-2">
               <button
                 onClick={save}
-                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90"
+                disabled={status === "checking"}
+                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                Save
+                {status === "checking" ? "Verifying…" : "Verify & save"}
               </button>
               {hasKey && (
                 <button
