@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Milestone, Plan, RiskLevel } from "@/lib/schema";
-import DraftModal from "@/components/DraftModal";
+import StreamModal from "@/components/StreamModal";
 
 const riskColor: Record<RiskLevel, string> = {
   high: "text-risk-high",
@@ -24,6 +24,7 @@ interface Props {
 
 export default function PlanPanel({ plan, onReplan, replanning }: Props) {
   const [draftFor, setDraftFor] = useState<Milestone | null>(null);
+  const [showPremortem, setShowPremortem] = useState(false);
   const [note, setNote] = useState("");
 
   function submitReplan() {
@@ -119,6 +120,12 @@ export default function PlanPanel({ plan, onReplan, replanning }: Props) {
             >
               📄 Export pitch
             </a>
+            <button
+              onClick={() => setShowPremortem(true)}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              ⚠️ Pre-mortem
+            </button>
             {syncMsg && <span className="text-xs text-muted">{syncMsg}</span>}
           </div>
 
@@ -211,7 +218,24 @@ export default function PlanPanel({ plan, onReplan, replanning }: Props) {
       )}
 
       {draftFor && plan && (
-        <DraftModal brief={plan.brief} milestone={draftFor} onClose={() => setDraftFor(null)} />
+        <StreamModal
+          key={draftFor.id}
+          title="Draft for"
+          subtitle={draftFor.goal}
+          endpoint="/api/draft"
+          body={{ brief: plan.brief, milestone: draftFor }}
+          onClose={() => setDraftFor(null)}
+        />
+      )}
+
+      {showPremortem && plan && (
+        <StreamModal
+          title="Pre-mortem"
+          subtitle="What could kill this in 30 days"
+          endpoint="/api/premortem"
+          body={{ plan }}
+          onClose={() => setShowPremortem(false)}
+        />
       )}
     </div>
   );

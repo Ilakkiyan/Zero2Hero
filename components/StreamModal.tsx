@@ -1,16 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { IdeaBrief, Milestone } from "@/lib/schema";
 import { readTokenStream } from "@/lib/streamClient";
 
 interface Props {
-  brief: IdeaBrief;
-  milestone: Milestone;
+  title: string;
+  subtitle?: string;
+  endpoint: string;
+  body: unknown;
   onClose: () => void;
 }
 
-export default function DraftModal({ brief, milestone, onClose }: Props) {
+/**
+ * Generic modal that POSTs `body` to `endpoint` and streams the NDJSON token
+ * response into a live, copyable text panel. Reused by the "Draft this" and
+ * "Pre-mortem" features (and any future streaming artifact).
+ */
+export default function StreamModal({ title, subtitle, endpoint, body, onClose }: Props) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +29,10 @@ export default function DraftModal({ brief, milestone, onClose }: Props) {
 
     (async () => {
       try {
-        const res = await fetch("/api/draft", {
+        const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ brief, milestone }),
+          body: JSON.stringify(body),
         });
         await readTokenStream(res, (t) => setText((prev) => prev + t));
       } catch (err) {
@@ -35,9 +41,10 @@ export default function DraftModal({ brief, milestone, onClose }: Props) {
         setLoading(false);
       }
     })();
-  }, [brief, milestone]);
+    // body/endpoint are fixed per modal instance; the guard prevents re-fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Close on Escape.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -65,8 +72,8 @@ export default function DraftModal({ brief, milestone, onClose }: Props) {
       >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wide text-muted">Draft for</p>
-            <p className="truncate text-sm font-medium text-text">{milestone.goal}</p>
+            <p className="text-[10px] uppercase tracking-wide text-muted">{title}</p>
+            {subtitle && <p className="truncate text-sm font-medium text-text">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}

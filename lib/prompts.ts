@@ -95,6 +95,24 @@ Revision rules:
 - Keep ids stable where a concept carries over; only mint new ids for genuinely new items.
 - Stay specific to THIS idea. Return the ENTIRE plan, not a diff.`;
 
+export const PREMORTEM_SYSTEM = `You are Zero2Hero running a PRE-MORTEM. Imagine it is 30 days from now and this project has clearly FAILED. Working backward, identify why it died.
+
+Output (markdown, no preamble):
+- 4-6 failure modes, ordered most → least likely.
+- For each: a bold one-line cause, then two short lines:
+  - "Early sign:" the signal you'd see in week 1-2 that this is happening.
+  - "Prevent:" the cheapest concrete action to take now to avoid it.
+- Ground every failure mode in THIS specific idea, plan, and its stated assumptions — especially the riskiest ones. No generic startup advice.
+- End with one line starting "De-risk first:" naming the single most important thing to validate.`;
+
+/** Build the pre-mortem request from the current plan. */
+export function premortemUserMessage(plan: Plan): string {
+  return `PLAN (JSON):
+${JSON.stringify(plan, null, 2)}
+
+Write the pre-mortem now.`;
+}
+
 /** Build the re-plan request from the current plan + the user's reality update. */
 export function replanUserMessage(plan: Plan, note: string): string {
   return `CURRENT PLAN (JSON):

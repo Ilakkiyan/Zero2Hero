@@ -99,5 +99,5 @@ Core loop (interview → plan → draft → re-plan) is done. These deepen the "
 
 **Tier 3 — stretch**
 - [ ] **Shareable plan link** (tiny KV store → URL for mentors/teammates)
-- [ ] **Pre-mortem generator** — "what could kill this in 30 days" (another streaming prompt)
+- [x] **Pre-mortem generator** — "what could kill this in 30 days" (failure modes + early signs + prevention)
 - [ ] **Confidence meter** — model rates plan confidence + biggest unknowns
