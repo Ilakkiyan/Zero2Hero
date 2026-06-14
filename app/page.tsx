@@ -11,6 +11,7 @@ export default function Home() {
   const [readyToPlan, setReadyToPlan] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planning, setPlanning] = useState(false);
+  const [replanning, setReplanning] = useState(false);
 
   async function generatePlan() {
     setPlanning(true);
@@ -25,6 +26,23 @@ export default function Home() {
       else console.error("Plan error:", data);
     } finally {
       setPlanning(false);
+    }
+  }
+
+  async function replan(note: string) {
+    if (!plan) return;
+    setReplanning(true);
+    try {
+      const res = await fetch("/api/replan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, note }),
+      });
+      const data = await res.json();
+      if (res.ok) setPlan(data.plan);
+      else console.error("Replan error:", data);
+    } finally {
+      setReplanning(false);
     }
   }
 
@@ -48,7 +66,7 @@ export default function Home() {
           />
         </section>
         <section>
-          <PlanPanel plan={plan} />
+          <PlanPanel plan={plan} onReplan={replan} replanning={replanning} />
         </section>
       </div>
     </main>

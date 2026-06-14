@@ -1,4 +1,4 @@
-import type { IdeaBrief, Milestone } from "@/lib/schema";
+import type { IdeaBrief, Milestone, Plan } from "@/lib/schema";
 
 /**
  * Prompts are the product's core IP. This is where the "wow" lives — the
@@ -77,4 +77,31 @@ Tasks:
 ${milestone.tasks.map((t) => `- ${t}`).join("\n")}
 
 Produce the artifact now.`;
+}
+
+export const REPLAN_SYSTEM = `You are Zero2Hero's planner, REVISING an existing execution plan based on what the user just tried and learned. Output STRICT JSON only — no prose outside the JSON.
+
+Return the FULL updated plan in this exact shape:
+{
+  "brief": { "problem": string, "targetUser": string, "riskiestAssumption": string, "definitionOfWin": string },
+  "assumptions": [ { "id": string, "claim": string, "risk": "high"|"med"|"low", "cheapTest": string } ],
+  "milestones": [ { "id": string, "phase": string, "goal": string, "validates": string|null, "tasks": [string], "status": "todo"|"doing"|"done" } ]
+}
+
+Revision rules:
+- Treat the user's update as ground truth about reality. If it invalidates an assumption, lower its risk or replace it; if it surfaces a NEW risk, add it.
+- Re-order, rewrite, add, or drop milestones so the plan reflects what was just learned. Mark milestones that are clearly done as "done".
+- Update brief.riskiestAssumption if the riskiest thing has changed.
+- Keep ids stable where a concept carries over; only mint new ids for genuinely new items.
+- Stay specific to THIS idea. Return the ENTIRE plan, not a diff.`;
+
+/** Build the re-plan request from the current plan + the user's reality update. */
+export function replanUserMessage(plan: Plan, note: string): string {
+  return `CURRENT PLAN (JSON):
+${JSON.stringify(plan, null, 2)}
+
+WHAT THE USER TRIED / LEARNED:
+${note}
+
+Return the full revised plan JSON now.`;
 }

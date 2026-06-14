@@ -16,8 +16,22 @@ const riskDot: Record<RiskLevel, string> = {
   low: "bg-risk-low",
 };
 
-export default function PlanPanel({ plan }: { plan: Plan | null }) {
+interface Props {
+  plan: Plan | null;
+  onReplan: (note: string) => void;
+  replanning: boolean;
+}
+
+export default function PlanPanel({ plan, onReplan, replanning }: Props) {
   const [draftFor, setDraftFor] = useState<Milestone | null>(null);
+  const [note, setNote] = useState("");
+
+  function submitReplan() {
+    const t = note.trim();
+    if (!t || replanning) return;
+    onReplan(t);
+    setNote("");
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -98,6 +112,29 @@ export default function PlanPanel({ plan }: { plan: Plan | null }) {
               </div>
             ))}
           </section>
+        </div>
+      )}
+
+      {plan && (
+        <div className="border-t border-border p-3">
+          <div className="flex items-center gap-2 rounded-xl bg-surface-2 p-2">
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submitReplan();
+              }}
+              placeholder="Tried something? e.g. “users wanted X, not Y”…"
+              className="flex-1 bg-transparent px-2 py-1.5 text-sm text-text outline-none placeholder:text-muted"
+            />
+            <button
+              onClick={submitReplan}
+              disabled={replanning || !note.trim()}
+              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {replanning ? "Updating…" : "Update plan"}
+            </button>
+          </div>
         </div>
       )}
 
