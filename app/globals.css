@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theming is driven entirely by these CSS variables. Default is dark.
+ * Adding light mode later = add a `[data-theme="light"]` block below and
+ * flip the attribute on <html>. No component changes needed.
+ */
+:root,
+[data-theme="dark"] {
+  --bg: #0a0a0b;
+  --surface: #131316;
+  --surface-2: #1a1a1f;
+  --border: #26262b;
+  --text: #ededf0;
+  --muted: #8a8a93;
+  --accent: #7c9cff;
+
+  --risk-high: #f87171;
+  --risk-med: #fbbf24;
+  --risk-low: #4ade80;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+}
+
+/* Placeholder for the future toggle — values to be tuned on Day 6 (polish).
+[data-theme="light"] {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  ...
+}
+*/
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin, unobtrusive scrollbars to match the clean dark look. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
