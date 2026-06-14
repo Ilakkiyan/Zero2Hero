@@ -56,6 +56,23 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Print: pitch one-pager only, on white, with colors preserved. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 1.4cm;
+  }
+  body {
+    background: #fff !important;
+  }
+  .pitch-sheet {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 /* Thin, unobtrusive scrollbars to match the clean dark look. */
 ::-webkit-scrollbar {
   width: 10px;

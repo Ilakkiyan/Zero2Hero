@@ -111,6 +111,14 @@ export default function PlanPanel({ plan, onReplan, replanning }: Props) {
             >
               {syncing ? "Syncing…" : "📅 Add to Google Calendar"}
             </button>
+            <a
+              href="/pitch"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              📄 Export pitch
+            </a>
             {syncMsg && <span className="text-xs text-muted">{syncMsg}</span>}
           </div>
 
