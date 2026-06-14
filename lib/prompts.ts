@@ -95,6 +95,28 @@ Revision rules:
 - Keep ids stable where a concept carries over; only mint new ids for genuinely new items.
 - Stay specific to THIS idea. Return the ENTIRE plan, not a diff.`;
 
+/** Build the grounded research request from the idea brief. */
+export function researchUserMessage(brief: IdeaBrief): string {
+  return `You are a startup research assistant with live web access. Research this idea and write a concise, grounded brief. Use web search and cite real products and facts — do not invent names.
+
+IDEA
+Problem: ${brief.problem}
+Target user: ${brief.targetUser}
+Definition of win: ${brief.definitionOfWin}
+
+Write markdown with these sections, each a few short bullets:
+## Similar products / existing solutions
+(3-5 real, named products — one line on what each does)
+## Competition & differentiation
+(who's winning today, and the gap this idea could exploit)
+## Required skills & tech
+(what the team needs to build and ship this)
+## Market signals
+(evidence of demand — trends, communities, data points)
+
+Be specific and current. Prefer real names and facts from search over generic advice. No preamble.`;
+}
+
 export const PREMORTEM_SYSTEM = `You are Zero2Hero running a PRE-MORTEM. Imagine it is 30 days from now and this project has clearly FAILED. Working backward, identify why it died.
 
 Output (markdown, no preamble):

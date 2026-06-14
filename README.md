@@ -96,6 +96,7 @@ Core loop (interview → plan → draft → re-plan) is done. These deepen the "
 **Tier 2 — high impact / medium effort**
 - [x] **Voice input** for the interview (Web Speech API — free, browser-native). *Live-demo dazzle.*
 - [ ] **Assumption test tracker → auto re-plan** — log each cheap test's result; feed it straight into `/api/replan`. *Closes the de-risking loop visibly.*
+- [x] **Live research** — one-click grounded web research (Gemini + Google Search): similar products, competition, required skills, market signals, with cited source links.
 
 **Tier 3 — stretch**
 - [ ] **Shareable plan link** (tiny KV store → URL for mentors/teammates)

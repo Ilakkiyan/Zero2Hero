@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Milestone, Plan, RiskLevel } from "@/lib/schema";
 import StreamModal from "@/components/StreamModal";
+import ResearchModal from "@/components/ResearchModal";
 
 const riskColor: Record<RiskLevel, string> = {
   high: "text-risk-high",
@@ -25,6 +26,7 @@ interface Props {
 export default function PlanPanel({ plan, onReplan, replanning }: Props) {
   const [draftFor, setDraftFor] = useState<Milestone | null>(null);
   const [showPremortem, setShowPremortem] = useState(false);
+  const [showResearch, setShowResearch] = useState(false);
   const [note, setNote] = useState("");
 
   function submitReplan() {
@@ -125,6 +127,12 @@ export default function PlanPanel({ plan, onReplan, replanning }: Props) {
               className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
             >
               ⚠️ Pre-mortem
+            </button>
+            <button
+              onClick={() => setShowResearch(true)}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              🔎 Research
             </button>
             {syncMsg && <span className="text-xs text-muted">{syncMsg}</span>}
           </div>
@@ -236,6 +244,10 @@ export default function PlanPanel({ plan, onReplan, replanning }: Props) {
           body={{ plan }}
           onClose={() => setShowPremortem(false)}
         />
+      )}
+
+      {showResearch && plan && (
+        <ResearchModal brief={plan.brief} onClose={() => setShowResearch(false)} />
       )}
     </div>
   );
