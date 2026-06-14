@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/llm";
 import { readTokenStream } from "@/lib/streamClient";
+import { useSpeechToText } from "@/lib/useSpeechToText";
 
 interface Props {
   messages: ChatMessage[];
@@ -24,6 +25,22 @@ export default function InterviewPanel({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Voice dictation: base holds committed text; interim previews live on top.
+  const baseRef = useRef("");
+  const { supported: micSupported, listening, toggle } = useSpeechToText((text, isFinal) => {
+    if (isFinal) {
+      baseRef.current = (baseRef.current ? baseRef.current + " " : "") + text.trim();
+      setInput(baseRef.current);
+    } else {
+      setInput((baseRef.current ? baseRef.current + " " : "") + text.trim());
+    }
+  });
+
+  function toggleMic() {
+    if (!listening) baseRef.current = input.trim();
+    toggle();
+  }
 
   async function send() {
     const text = input.trim();
@@ -118,9 +135,23 @@ export default function InterviewPanel({
               }
             }}
             rows={1}
-            placeholder="Type your idea or answer…"
+            placeholder={listening ? "Listening…" : "Type your idea or answer…"}
             className="max-h-32 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-text outline-none placeholder:text-muted"
           />
+          {micSupported && (
+            <button
+              type="button"
+              onClick={toggleMic}
+              aria-label={listening ? "Stop dictation" : "Start dictation"}
+              className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                listening
+                  ? "animate-pulse bg-risk-high text-white"
+                  : "bg-surface text-muted hover:text-text"
+              }`}
+            >
+              {listening ? "● Rec" : "🎤"}
+            </button>
+          )}
           <button
             onClick={send}
             disabled={loading || !input.trim()}

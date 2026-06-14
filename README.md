@@ -91,10 +91,10 @@ Core loop (interview → plan → draft → re-plan) is done. These deepen the "
 **Tier 1 — highest impact / lowest effort**
 - [x] **Calendar sync** — Google Calendar OAuth: one event per milestone. *Bridges plan → real life.* (see setup below)
 - [ ] **Plan persistence (localStorage)** — survive reload; also protects the live demo. Foundation for share/export.
-- [ ] **Pitch one-pager export** — clean print-to-PDF of brief + assumptions + milestones. *Targets the Best Pitch award.*
+- [x] **Pitch one-pager export** — print-to-PDF of brief + assumptions + milestones at `/pitch`. *Targets the Best Pitch award.*
 
 **Tier 2 — high impact / medium effort**
-- [ ] **Voice input** for the interview (Web Speech API — free, browser-native). *Live-demo dazzle.*
+- [x] **Voice input** for the interview (Web Speech API — free, browser-native). *Live-demo dazzle.*
 - [ ] **Assumption test tracker → auto re-plan** — log each cheap test's result; feed it straight into `/api/replan`. *Closes the de-risking loop visibly.*
 
 **Tier 3 — stretch**
