@@ -60,7 +60,7 @@ The API key is handled so a public repo/demo can't leak or get spammed:
 - [x] Day 1 — scaffold, provider layer, split-view shell
 - [x] Day 2 — streaming interview responses (NDJSON token stream)
 - [ ] Day 3 — tune risk-surfacing
-- [ ] Day 4 — "Draft this" per-milestone copilot
+- [x] Day 4 — "Draft this" per-milestone copilot (streaming artifact modal)
 - [ ] Day 5 — re-plan flow ("I tried X, it failed")
 - [ ] Day 6 — polish + light mode + deploy
 - [ ] Day 7 — rehearse demo

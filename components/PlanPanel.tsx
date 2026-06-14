@@ -1,6 +1,8 @@
 "use client";
 
-import type { Plan, RiskLevel } from "@/lib/schema";
+import { useState } from "react";
+import type { Milestone, Plan, RiskLevel } from "@/lib/schema";
+import DraftModal from "@/components/DraftModal";
 
 const riskColor: Record<RiskLevel, string> = {
   high: "text-risk-high",
@@ -15,6 +17,8 @@ const riskDot: Record<RiskLevel, string> = {
 };
 
 export default function PlanPanel({ plan }: { plan: Plan | null }) {
+  const [draftFor, setDraftFor] = useState<Milestone | null>(null);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-5 py-4">
@@ -85,10 +89,20 @@ export default function PlanPanel({ plan }: { plan: Plan | null }) {
                     </li>
                   ))}
                 </ul>
+                <button
+                  onClick={() => setDraftFor(m)}
+                  className="mt-3 rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+                >
+                  Draft this →
+                </button>
               </div>
             ))}
           </section>
         </div>
+      )}
+
+      {draftFor && plan && (
+        <DraftModal brief={plan.brief} milestone={draftFor} onClose={() => setDraftFor(null)} />
       )}
     </div>
   );

@@ -1,3 +1,5 @@
+import type { IdeaBrief, Milestone } from "@/lib/schema";
+
 /**
  * Prompts are the product's core IP. This is where the "wow" lives — the
  * interview must ask the sharp, de-risking question a founder hadn't thought
@@ -50,3 +52,29 @@ Guidance:
 - Every high-risk assumption should have a milestone that validates it early.
 - Milestones move toward a first prototype/pilot, not a finished product.
 - Keep it specific to THIS idea. No generic startup boilerplate.`;
+
+export const DRAFT_SYSTEM = `You are Zero2Hero's execution copilot. Given the user's idea and ONE milestone from their plan, produce the single most useful, ready-to-use artifact to actually execute that milestone's first step.
+
+Choose the best artifact for THIS milestone — e.g. a user-interview script, a landing-page hero + sections, a cold outreach message, a validation survey, a test/validation plan, a pitch outline, or a short spec. Pick ONE; do not list options.
+
+Rules:
+- First line: "**<Artifact type>**" naming what you're producing.
+- Then the artifact itself — complete and specific to this idea, using the real problem, user, and goal. NOT a template with blanks to fill in.
+- Tight and immediately usable. Markdown is fine.
+- No preamble ("here's a draft…"), no closing commentary.`;
+
+/** Build the draft request from the idea brief + the chosen milestone. */
+export function draftUserMessage(brief: IdeaBrief, milestone: Milestone): string {
+  return `IDEA
+Problem: ${brief.problem}
+Target user: ${brief.targetUser}
+Definition of win: ${brief.definitionOfWin}
+
+MILESTONE
+Phase: ${milestone.phase}
+Goal: ${milestone.goal}
+Tasks:
+${milestone.tasks.map((t) => `- ${t}`).join("\n")}
+
+Produce the artifact now.`;
+}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ChatMessage } from "@/lib/llm";
+import { readTokenStream } from "@/lib/streamClient";
 
 interface Props {
   messages: ChatMessage[];
@@ -40,43 +41,14 @@ export default function InterviewPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: base }),
       });
-      if (!res.ok || !res.body) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Request failed (${res.status})`);
-      }
 
-      // Read the NDJSON token stream and grow the assistant bubble live.
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let lineBuf = "";
+      // Stream tokens and grow the assistant bubble live.
       let assistant = "";
-
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        lineBuf += decoder.decode(value, { stream: true });
-
-        let idx: number;
-        while ((idx = lineBuf.indexOf("\n")) >= 0) {
-          const line = lineBuf.slice(0, idx).trim();
-          lineBuf = lineBuf.slice(idx + 1);
-          if (!line) continue;
-
-          const evt = JSON.parse(line) as
-            | { type: "token"; value: string }
-            | { type: "done"; readyToPlan: boolean }
-            | { type: "error"; message: string };
-
-          if (evt.type === "token") {
-            assistant += evt.value;
-            setMessages([...base, { role: "assistant", content: assistant }]);
-          } else if (evt.type === "done") {
-            if (evt.readyToPlan) setReadyToPlan(true);
-          } else if (evt.type === "error") {
-            throw new Error(evt.message);
-          }
-        }
-      }
+      const { readyToPlan } = await readTokenStream(res, (text) => {
+        assistant += text;
+        setMessages([...base, { role: "assistant", content: assistant }]);
+      });
+      if (readyToPlan) setReadyToPlan(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
