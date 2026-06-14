@@ -95,26 +95,33 @@ Revision rules:
 - Keep ids stable where a concept carries over; only mint new ids for genuinely new items.
 - Stay specific to THIS idea. Return the ENTIRE plan, not a diff.`;
 
-/** Build the grounded research request from the idea brief. */
-export function researchUserMessage(brief: IdeaBrief): string {
-  return `You are a startup research assistant with live web access. Research this idea and write a concise, grounded brief. Use web search and cite real products and facts — do not invent names.
+/** Step 1 of agentic research: plan the sub-questions to investigate. */
+export function researchPlanMessage(brief: IdeaBrief): string {
+  return `You are planning web research to assess this idea's viability. Generate exactly 4 focused, independently searchable research questions covering, in order: (1) direct competitors / similar products, (2) what users dislike about existing solutions, (3) required skills & technology to build it, (4) market demand / trends.
 
 IDEA
 Problem: ${brief.problem}
 Target user: ${brief.targetUser}
-Definition of win: ${brief.definitionOfWin}
 
-Write markdown with these sections, each a few short bullets:
-## Similar products / existing solutions
-(3-5 real, named products — one line on what each does)
-## Competition & differentiation
-(who's winning today, and the gap this idea could exploit)
-## Required skills & tech
-(what the team needs to build and ship this)
-## Market signals
-(evidence of demand — trends, communities, data points)
+Make each question specific to THIS idea. Return JSON only: {"questions": ["...", "...", "...", "..."]}`;
+}
 
-Be specific and current. Prefer real names and facts from search over generic advice. No preamble.`;
+/** Step 3 of agentic research: synthesize the per-question findings. */
+export function researchSynthesisMessage(
+  brief: IdeaBrief,
+  findings: { question: string; text: string }[],
+): string {
+  const f = findings.map((x, i) => `### ${i + 1}. ${x.question}\n${x.text}`).join("\n\n");
+  return `Synthesize these web-research findings into a tight, decision-useful brief for the founder. Use only what the findings support — do not invent products or facts.
+
+IDEA
+Problem: ${brief.problem}
+Target user: ${brief.targetUser}
+
+FINDINGS
+${f}
+
+Write markdown with these sections (short bullets): ## Similar products / existing solutions, ## Competition & differentiation, ## Required skills & tech, ## Market signals. End with "## Bottom line" — 1-2 sentences on how crowded the space is and where the opening is. No preamble.`;
 }
 
 export const PREMORTEM_SYSTEM = `You are Zero2Hero running a PRE-MORTEM. Imagine it is 30 days from now and this project has clearly FAILED. Working backward, identify why it died.

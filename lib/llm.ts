@@ -201,7 +201,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * caller to handle (ok or not) — smooths the bursts you get when several
  * teammates hit one free-tier key at once.
  */
-async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<Response> {
+export async function fetchWithRetry(url: string, init: RequestInit, maxRetries = 3): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     const response = await fetch(url, init);
     if ((response.status !== 429 && response.status !== 503) || attempt >= maxRetries) {

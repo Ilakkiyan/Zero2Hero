@@ -7,17 +7,29 @@ interface Source {
   title: string;
   uri: string;
 }
+type StepState = "pending" | "searching" | "done";
+
+type ResearchEvent =
+  | { type: "plan"; questions: string[] }
+  | { type: "step"; index: number; question: string }
+  | { type: "step_done"; index: number; sourceCount: number }
+  | { type: "token"; value: string }
+  | { type: "sources"; value: Source[] }
+  | { type: "done" }
+  | { type: "error"; message: string };
 
 /**
- * Streams a grounded research brief from /api/research and renders it live,
- * followed by the cited source links. Has its own stream reader (vs the shared
- * one) because it also handles the "sources" event.
+ * Agentic research view: shows the research plan, each grounded search lighting
+ * up as it runs, then the streamed synthesis and cited sources.
  */
 export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; onClose: () => void }) {
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [steps, setSteps] = useState<StepState[]>([]);
+  const [stepCounts, setStepCounts] = useState<number[]>([]);
   const [text, setText] = useState("");
   const [sources, setSources] = useState<Source[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [finished, setFinished] = useState(false);
   const started = useRef(false);
 
   useEffect(() => {
@@ -48,20 +60,30 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
             const line = buf.slice(0, i).trim();
             buf = buf.slice(i + 1);
             if (!line) continue;
-            const ev = JSON.parse(line) as
-              | { type: "token"; value: string }
-              | { type: "sources"; value: Source[] }
-              | { type: "done" }
-              | { type: "error"; message: string };
-            if (ev.type === "token") setText((p) => p + ev.value);
-            else if (ev.type === "sources") setSources(ev.value);
-            else if (ev.type === "error") throw new Error(ev.message);
+            const ev = JSON.parse(line) as ResearchEvent;
+
+            if (ev.type === "plan") {
+              setQuestions(ev.questions);
+              setSteps(ev.questions.map(() => "pending"));
+              setStepCounts(ev.questions.map(() => 0));
+            } else if (ev.type === "step") {
+              setSteps((s) => s.map((v, idx) => (idx === ev.index ? "searching" : v)));
+            } else if (ev.type === "step_done") {
+              setSteps((s) => s.map((v, idx) => (idx === ev.index ? "done" : v)));
+              setStepCounts((c) => c.map((v, idx) => (idx === ev.index ? ev.sourceCount : v)));
+            } else if (ev.type === "token") {
+              setText((p) => p + ev.value);
+            } else if (ev.type === "sources") {
+              setSources(ev.value);
+            } else if (ev.type === "error") {
+              throw new Error(ev.message);
+            }
           }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       } finally {
-        setLoading(false);
+        setFinished(true);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,6 +94,8 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const icon = (s: StepState) => (s === "done" ? "✓" : s === "searching" ? "⟳" : "•");
 
   return (
     <div
@@ -85,9 +109,7 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wide text-muted">Live research</p>
-            <p className="truncate text-sm font-medium text-text">
-              competitors · skills · market signals
-            </p>
+            <p className="truncate text-sm font-medium text-text">plan → search → synthesize</p>
           </div>
           <button
             onClick={onClose}
@@ -98,36 +120,73 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {error ? (
-            <p className="text-sm text-risk-high">{error}</p>
-          ) : (
-            <>
+        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+          {error && <p className="text-sm text-risk-high">{error}</p>}
+
+          {questions.length === 0 && !error && (
+            <p className="text-sm text-muted">Planning research…</p>
+          )}
+
+          {/* Research plan + live progress */}
+          {questions.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted">Research plan</p>
+              <ul className="space-y-1.5">
+                {questions.map((q, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm">
+                    <span
+                      className={
+                        "mt-0.5 w-4 shrink-0 text-center " +
+                        (steps[idx] === "done"
+                          ? "text-risk-low"
+                          : steps[idx] === "searching"
+                            ? "animate-spin text-accent"
+                            : "text-muted")
+                      }
+                    >
+                      {icon(steps[idx])}
+                    </span>
+                    <span className={steps[idx] === "pending" ? "text-muted" : "text-text"}>
+                      {q}
+                      {steps[idx] === "done" && stepCounts[idx] > 0 && (
+                        <span className="text-muted"> · {stepCounts[idx]} sources</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Synthesized brief */}
+          {text && (
+            <div className="border-t border-border pt-4">
               <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-text">
                 {text}
-                {loading && <span className="text-muted">▍</span>}
+                {!finished && <span className="text-muted">▍</span>}
               </pre>
+            </div>
+          )}
 
-              {sources.length > 0 && (
-                <div className="mt-5 border-t border-border pt-4">
-                  <p className="mb-2 text-[10px] uppercase tracking-wide text-muted">Sources</p>
-                  <ul className="space-y-1">
-                    {sources.map((s, i) => (
-                      <li key={i}>
-                        <a
-                          href={s.uri}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-accent underline-offset-2 hover:underline"
-                        >
-                          {s.title}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </>
+          {/* Sources */}
+          {sources.length > 0 && (
+            <div className="border-t border-border pt-4">
+              <p className="mb-2 text-[10px] uppercase tracking-wide text-muted">Sources</p>
+              <ul className="space-y-1">
+                {sources.map((s, i) => (
+                  <li key={i}>
+                    <a
+                      href={s.uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-accent underline-offset-2 hover:underline"
+                    >
+                      {s.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
 

@@ -1,15 +1,20 @@
 import { NextRequest } from "next/server";
-import { streamResearch } from "@/lib/research";
-import { researchUserMessage } from "@/lib/prompts";
+import { runAgenticResearch } from "@/lib/research";
 import { IdeaBriefSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
+// Agentic research runs several LLM + grounded-search calls; give it room.
+export const maxDuration = 120;
+
 /**
- * Streams a grounded research brief for the idea. NDJSON events:
- *   {"type":"token","value":"..."}      incremental text
- *   {"type":"sources","value":[{title,uri}]}   cited links (once, near the end)
+ * Streams agentic web research as NDJSON events:
+ *   {"type":"plan","questions":[...]}          the research plan
+ *   {"type":"step","index":N,"question":"..."}  a search starting
+ *   {"type":"step_done","index":N,"sourceCount":K}
+ *   {"type":"token","value":"..."}              synthesized brief (streamed)
+ *   {"type":"sources","value":[{title,uri}]}    all cited links
  *   {"type":"done"} / {"type":"error","message":"..."}
  */
 export async function POST(req: NextRequest) {
@@ -44,7 +49,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       try {
-        for await (const event of streamResearch(researchUserMessage(brief))) {
+        for await (const event of runAgenticResearch(brief)) {
           send(event);
         }
         send({ type: "done" });
