@@ -62,5 +62,23 @@ The API key is handled so a public repo/demo can't leak or get spammed:
 - [ ] Day 3 — tune risk-surfacing
 - [x] Day 4 — "Draft this" per-milestone copilot (streaming artifact modal)
 - [x] Day 5 — re-plan flow ("I tried X, it failed" → plan re-shapes)
-- [ ] Day 6 — polish + light mode + deploy
+- [ ] Day 6 — polish + deploy (light-mode toggle ✅ done)
 - [ ] Day 7 — rehearse demo
+
+## WOW backlog (post-loop features)
+
+Core loop (interview → plan → draft → re-plan) is done. These deepen the "wow":
+
+**Tier 1 — highest impact / lowest effort**
+- [ ] **Calendar sync** — milestones → dated calendar events. Ship `.ics` export first (no auth, works with Google/Apple/Outlook); Google Calendar OAuth as a stretch. *Bridges plan → real life.*
+- [ ] **Plan persistence (localStorage)** — survive reload; also protects the live demo. Foundation for share/export.
+- [ ] **Pitch one-pager export** — clean print-to-PDF of brief + assumptions + milestones. *Targets the Best Pitch award.*
+
+**Tier 2 — high impact / medium effort**
+- [ ] **Voice input** for the interview (Web Speech API — free, browser-native). *Live-demo dazzle.*
+- [ ] **Assumption test tracker → auto re-plan** — log each cheap test's result; feed it straight into `/api/replan`. *Closes the de-risking loop visibly.*
+
+**Tier 3 — stretch**
+- [ ] **Shareable plan link** (tiny KV store → URL for mentors/teammates)
+- [ ] **Pre-mortem generator** — "what could kill this in 30 days" (another streaming prompt)
+- [ ] **Confidence meter** — model rates plan confidence + biggest unknowns

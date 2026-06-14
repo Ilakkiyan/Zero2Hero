@@ -3,6 +3,7 @@
 import { useState } from "react";
 import InterviewPanel from "@/components/InterviewPanel";
 import PlanPanel from "@/components/PlanPanel";
+import ThemeToggle from "@/components/ThemeToggle";
 import type { ChatMessage } from "@/lib/llm";
 import type { Plan } from "@/lib/schema";
 
@@ -51,7 +52,9 @@ export default function Home() {
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <h1 className="text-base font-semibold tracking-tight text-text">Zero2Hero</h1>
         <span className="text-sm text-muted">idea → execution plan</span>
-        {/* Light-mode toggle slots in here later. */}
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="grid flex-1 grid-cols-2 overflow-hidden">
