@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const apiKey = req.headers.get("x-gemini-key") || undefined;
+
   try {
     const { plan, note } = (await req.json()) as { plan: unknown; note: unknown };
 
@@ -31,10 +33,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "note required" }, { status: 400 });
     }
 
-    const raw = await chatJSON([
-      { role: "system", content: REPLAN_SYSTEM },
-      { role: "user", content: replanUserMessage(currentPlan.data, note) },
-    ]);
+    const raw = await chatJSON(
+      [
+        { role: "system", content: REPLAN_SYSTEM },
+        { role: "user", content: replanUserMessage(currentPlan.data, note) },
+      ],
+      { apiKey },
+    );
 
     const revised = PlanSchema.safeParse(raw);
     if (!revised.success) {

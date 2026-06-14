@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const apiKey = req.headers.get("x-gemini-key") || undefined;
+
   let messages: ChatMessage[];
   try {
     const body = await req.json();
@@ -43,10 +45,10 @@ export async function POST(req: NextRequest) {
       let sawMarker = false;
 
       try {
-        for await (const chunk of chatStream([
-          { role: "system", content: INTERVIEW_SYSTEM },
-          ...messages,
-        ])) {
+        for await (const chunk of chatStream(
+          [{ role: "system", content: INTERVIEW_SYSTEM }, ...messages],
+          { apiKey },
+        )) {
           buf += chunk;
 
           // Remove any complete markers anywhere in the buffer.

@@ -20,6 +20,19 @@ export interface ChatOptions {
   /** Hint the model to return strict JSON. Adapters enforce where supported. */
   json?: boolean;
   temperature?: number;
+  /** Per-request "bring your own key" override (Gemini). Falls back to env. */
+  apiKey?: string;
+}
+
+/** User-provided key wins; otherwise the env fallback. Friendly error if neither. */
+export function resolveGeminiKey(override?: string): string {
+  const key = override || process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new Error(
+      "No Gemini API key. Add your own key with the key button (top-right), or set GEMINI_API_KEY.",
+    );
+  }
+  return key;
 }
 
 export interface LLMProvider {
@@ -83,7 +96,7 @@ class GeminiProvider implements LLMProvider {
   readonly name = "gemini";
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
-    const apiKey = requireEnv("GEMINI_API_KEY");
+    const apiKey = resolveGeminiKey(opts.apiKey);
     const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 
     // Gemini splits the system prompt out and uses "user"/"model" roles.
@@ -114,7 +127,7 @@ class GeminiProvider implements LLMProvider {
   }
 
   async *stream(messages: ChatMessage[], opts: ChatOptions = {}): AsyncGenerator<string> {
-    const apiKey = requireEnv("GEMINI_API_KEY");
+    const apiKey = resolveGeminiKey(opts.apiKey);
     const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 
     const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");

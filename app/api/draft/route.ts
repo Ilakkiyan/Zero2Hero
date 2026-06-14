@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const apiKey = req.headers.get("x-gemini-key") || undefined;
+
   let body: z.infer<typeof BodySchema>;
   try {
     body = BodySchema.parse(await req.json());
@@ -40,10 +42,13 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       try {
-        for await (const chunk of chatStream([
-          { role: "system", content: DRAFT_SYSTEM },
-          { role: "user", content: draftUserMessage(body.brief, body.milestone) },
-        ])) {
+        for await (const chunk of chatStream(
+          [
+            { role: "system", content: DRAFT_SYSTEM },
+            { role: "user", content: draftUserMessage(body.brief, body.milestone) },
+          ],
+          { apiKey },
+        )) {
           send({ type: "token", value: chunk });
         }
         send({ type: "done" });

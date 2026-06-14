@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { readTokenStream } from "@/lib/streamClient";
+import { apiHeaders } from "@/lib/apiClient";
 
 interface Props {
   title: string;
@@ -31,7 +32,7 @@ export default function StreamModal({ title, subtitle, endpoint, body, onClose }
       try {
         const res = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: apiHeaders(),
           body: JSON.stringify(body),
         });
         await readTokenStream(res, (t) => setText((prev) => prev + t));

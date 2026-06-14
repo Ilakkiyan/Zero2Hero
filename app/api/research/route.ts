@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const apiKey = req.headers.get("x-gemini-key") || undefined;
+
   let brief;
   try {
     const body = await req.json();
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       try {
-        for await (const event of runAgenticResearch(brief)) {
+        for await (const event of runAgenticResearch(brief, apiKey)) {
           send(event);
         }
         send({ type: "done" });

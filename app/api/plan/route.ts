@@ -19,17 +19,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const apiKey = req.headers.get("x-gemini-key") || undefined;
+
   try {
     const { messages } = (await req.json()) as { messages: ChatMessage[] };
     if (!Array.isArray(messages)) {
       return NextResponse.json({ error: "messages[] required" }, { status: 400 });
     }
 
-    const raw = await chatJSON([
-      { role: "system", content: PLAN_SYSTEM },
-      ...messages,
-      { role: "user", content: "Produce the execution plan JSON now." },
-    ]);
+    const raw = await chatJSON(
+      [
+        { role: "system", content: PLAN_SYSTEM },
+        ...messages,
+        { role: "user", content: "Produce the execution plan JSON now." },
+      ],
+      { apiKey },
+    );
 
     const parsed = PlanSchema.safeParse(raw);
     if (!parsed.success) {

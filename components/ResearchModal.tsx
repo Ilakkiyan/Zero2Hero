@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { IdeaBrief } from "@/lib/schema";
+import { apiHeaders } from "@/lib/apiClient";
 
 interface Source {
   title: string;
@@ -40,7 +41,7 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
       try {
         const res = await fetch("/api/research", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: apiHeaders(),
           body: JSON.stringify({ brief }),
         });
         if (!res.ok || !res.body) {

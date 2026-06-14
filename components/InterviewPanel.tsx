@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/llm";
 import { readTokenStream } from "@/lib/streamClient";
 import { useSpeechToText } from "@/lib/useSpeechToText";
+import { apiHeaders } from "@/lib/apiClient";
 
 interface Props {
   messages: ChatMessage[];
@@ -55,7 +56,7 @@ export default function InterviewPanel({
     try {
       const res = await fetch("/api/interview", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders(),
         body: JSON.stringify({ messages: base }),
       });
 

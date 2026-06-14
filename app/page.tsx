@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import InterviewPanel from "@/components/InterviewPanel";
 import PlanPanel from "@/components/PlanPanel";
 import ThemeToggle from "@/components/ThemeToggle";
+import ApiKeyButton from "@/components/ApiKeyButton";
+import { apiHeaders } from "@/lib/apiClient";
 import type { ChatMessage } from "@/lib/llm";
 import type { Plan } from "@/lib/schema";
 
@@ -47,7 +49,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders(),
         body: JSON.stringify({ messages }),
       });
       const data = await res.json();
@@ -64,7 +66,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/replan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders(),
         body: JSON.stringify({ plan, note }),
       });
       const data = await res.json();
@@ -80,7 +82,8 @@ export default function Home() {
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <h1 className="text-base font-semibold tracking-tight text-text">Zero2Hero</h1>
         <span className="text-sm text-muted">idea → execution plan</span>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <ApiKeyButton />
           <ThemeToggle />
         </div>
       </header>

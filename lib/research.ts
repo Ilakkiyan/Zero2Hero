@@ -1,5 +1,5 @@
 import type { IdeaBrief } from "@/lib/schema";
-import { chatJSON, chatStream, fetchWithRetry } from "@/lib/llm";
+import { chatJSON, chatStream, fetchWithRetry, resolveGeminiKey } from "@/lib/llm";
 import { researchPlanMessage, researchSynthesisMessage } from "@/lib/prompts";
 
 /**
@@ -42,11 +42,12 @@ function ensureGemini() {
   }
 }
 
-async function planQuestions(brief: IdeaBrief): Promise<string[]> {
+async function planQuestions(brief: IdeaBrief, apiKey?: string): Promise<string[]> {
   try {
-    const data = await chatJSON<{ questions?: unknown }>([
-      { role: "user", content: researchPlanMessage(brief) },
-    ]);
+    const data = await chatJSON<{ questions?: unknown }>(
+      [{ role: "user", content: researchPlanMessage(brief) }],
+      { apiKey },
+    );
     const qs = Array.isArray(data.questions)
       ? data.questions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
       : [];
@@ -62,9 +63,10 @@ async function planQuestions(brief: IdeaBrief): Promise<string[]> {
   ];
 }
 
-async function groundedSearch(question: string): Promise<{ text: string; sources: ResearchSource[] }> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
+async function groundedSearch(
+  question: string,
+  apiKey: string,
+): Promise<{ text: string; sources: ResearchSource[] }> {
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -103,11 +105,15 @@ async function groundedSearch(question: string): Promise<{ text: string; sources
   return { text, sources };
 }
 
-export async function* runAgenticResearch(brief: IdeaBrief): AsyncGenerator<ResearchEvent> {
+export async function* runAgenticResearch(
+  brief: IdeaBrief,
+  apiKey?: string,
+): AsyncGenerator<ResearchEvent> {
   ensureGemini();
+  const key = resolveGeminiKey(apiKey);
 
   // 1. PLAN
-  const questions = await planQuestions(brief);
+  const questions = await planQuestions(brief, key);
   yield { type: "plan", questions };
 
   // 2. SEARCH (sequential)
@@ -117,7 +123,7 @@ export async function* runAgenticResearch(brief: IdeaBrief): AsyncGenerator<Rese
   for (let i = 0; i < questions.length; i++) {
     yield { type: "step", index: i, question: questions[i] };
     try {
-      const { text, sources } = await groundedSearch(questions[i]);
+      const { text, sources } = await groundedSearch(questions[i], key);
       findings.push({ question: questions[i], text });
       for (const s of sources) allSources.set(s.uri, s);
       yield { type: "step_done", index: i, sourceCount: sources.length };
@@ -128,9 +134,10 @@ export async function* runAgenticResearch(brief: IdeaBrief): AsyncGenerator<Rese
   }
 
   // 3. SYNTHESIZE (streamed)
-  for await (const chunk of chatStream([
-    { role: "user", content: researchSynthesisMessage(brief, findings) },
-  ])) {
+  for await (const chunk of chatStream(
+    [{ role: "user", content: researchSynthesisMessage(brief, findings) }],
+    { apiKey: key },
+  )) {
     yield { type: "token", value: chunk };
   }
 

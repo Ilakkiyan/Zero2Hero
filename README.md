@@ -12,6 +12,13 @@ cp .env.example .env.local   # then fill in ONE provider's keys
 npm run dev                  # http://localhost:3000
 ```
 
+## Bring your own key (BYOK)
+
+Users can paste their own free Gemini key via the **Key** button in the header — it's stored in their browser (localStorage) and sent with each request as `x-gemini-key`, used server-side for that request only and **never persisted or logged**. Priority is **user key → `GEMINI_API_KEY` env fallback**.
+
+- **Local dev:** set `GEMINI_API_KEY` in `.env.local` and the app just works.
+- **Public deploy (Devpost):** *don't* set `GEMINI_API_KEY` in the host env → every visitor must bring their own key, so your quota is never spent (and there's no shared key to spam).
+
 ## Choosing a provider
 
 The whole app talks to one seam — [`lib/llm.ts`](lib/llm.ts). Set `LLM_PROVIDER` in `.env.local` to switch backends with zero code changes:
