@@ -40,6 +40,25 @@ components/
 
 Theming is CSS-variable driven (see [`app/globals.css`](app/globals.css)); dark by default, light-mode toggle is a one-line attribute flip later.
 
+## Google Calendar sync setup
+
+The "Add to Google Calendar" button needs a Google OAuth client (one-time, ~5 min):
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → create/select a project.
+2. **APIs & Services → Library →** enable **Google Calendar API**.
+3. **OAuth consent screen →** User type **External**, fill the basics, keep it in **Testing**, and add your Google account under **Test users** (no app verification needed in testing).
+4. **Credentials → Create credentials → OAuth client ID → Web application.** Under **Authorized redirect URIs** add exactly:
+   `http://localhost:3000/api/calendar/callback` (and your deployed URL's `/api/calendar/callback` later).
+5. Copy the client ID + secret into `.env.local`:
+   ```
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   GOOGLE_REDIRECT_URI=http://localhost:3000/api/calendar/callback
+   ```
+6. Restart `npm run dev`. Generate a plan → **Add to Google Calendar** → consent once → milestones appear as events.
+
+Tokens are short-lived and held in an httpOnly cookie (never exposed to the browser). The flow degrades gracefully if the vars are unset (the button shows a connection error rather than crashing).
+
 ## Security — before posting on Devpost
 
 The API key is handled so a public repo/demo can't leak or get spammed:
@@ -70,7 +89,7 @@ The API key is handled so a public repo/demo can't leak or get spammed:
 Core loop (interview → plan → draft → re-plan) is done. These deepen the "wow":
 
 **Tier 1 — highest impact / lowest effort**
-- [ ] **Calendar sync** — milestones → dated calendar events. Ship `.ics` export first (no auth, works with Google/Apple/Outlook); Google Calendar OAuth as a stretch. *Bridges plan → real life.*
+- [x] **Calendar sync** — Google Calendar OAuth: one event per milestone. *Bridges plan → real life.* (see setup below)
 - [ ] **Plan persistence (localStorage)** — survive reload; also protects the live demo. Foundation for share/export.
 - [ ] **Pitch one-pager export** — clean print-to-PDF of brief + assumptions + milestones. *Targets the Best Pitch award.*
 

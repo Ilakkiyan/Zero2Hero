@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import InterviewPanel from "@/components/InterviewPanel";
 import PlanPanel from "@/components/PlanPanel";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -13,6 +13,34 @@ export default function Home() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planning, setPlanning] = useState(false);
   const [replanning, setReplanning] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Persist session so a reload (or the Google OAuth redirect) doesn't wipe it.
+  const STORAGE_KEY = "z2h_state";
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (Array.isArray(s.messages)) setMessages(s.messages);
+        if (s.plan) setPlan(s.plan);
+        if (s.readyToPlan) setReadyToPlan(true);
+      }
+    } catch {
+      /* ignore corrupt/blocked storage */
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return; // don't overwrite storage with empty initial state
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, plan, readyToPlan }));
+    } catch {
+      /* storage full/blocked — non-fatal */
+    }
+  }, [hydrated, messages, plan, readyToPlan]);
 
   async function generatePlan() {
     setPlanning(true);

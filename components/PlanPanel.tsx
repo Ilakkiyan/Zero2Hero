@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Milestone, Plan, RiskLevel } from "@/lib/schema";
 import DraftModal from "@/components/DraftModal";
 
@@ -33,6 +33,58 @@ export default function PlanPanel({ plan, onReplan, replanning }: Props) {
     setNote("");
   }
 
+  // ── Google Calendar sync ──────────────────────────────────────────
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [pendingSync, setPendingSync] = useState(false);
+
+  async function syncCalendar() {
+    if (!plan) return;
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch("/api/calendar/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      if (res.status === 401) {
+        // Not connected (or token expired) → start the OAuth flow; we'll
+        // auto-sync on return via the ?gcal=connected handler below.
+        window.location.href = "/api/calendar/auth";
+        return;
+      }
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMsg(`Added ${data.count} milestone${data.count === 1 ? "" : "s"} to Google Calendar ✓`);
+      } else {
+        setSyncMsg(data.error || "Sync failed");
+      }
+    } catch {
+      setSyncMsg("Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  // Detect the OAuth return and clean the URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("gcal");
+    if (status === "connected") setPendingSync(true);
+    else if (status === "error") setSyncMsg("Google connection failed");
+    if (status) window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  // Once back from OAuth AND the plan has hydrated, sync automatically.
+  useEffect(() => {
+    if (pendingSync && plan) {
+      setPendingSync(false);
+      syncCalendar();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSync, plan]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-5 py-4">
@@ -50,6 +102,18 @@ export default function PlanPanel({ plan, onReplan, replanning }: Props) {
         </div>
       ) : (
         <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+          {/* Calendar sync */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={syncCalendar}
+              disabled={syncing}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80 disabled:opacity-50"
+            >
+              {syncing ? "Syncing…" : "📅 Add to Google Calendar"}
+            </button>
+            {syncMsg && <span className="text-xs text-muted">{syncMsg}</span>}
+          </div>
+
           {/* Idea brief */}
           <section className="space-y-2 rounded-xl border border-border bg-surface p-4">
             <Field label="Problem" value={plan.brief.problem} />
