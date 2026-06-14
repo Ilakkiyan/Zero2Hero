@@ -6,7 +6,9 @@ import { rateLimit, clientKey } from "@/lib/ratelimit";
 export const runtime = "nodejs";
 
 // Agentic research runs several LLM + grounded-search calls; give it room.
-export const maxDuration = 120;
+// 60s is the Vercel Hobby ceiling (the loop typically finishes in ~25s).
+// On Pro you can raise this to 300.
+export const maxDuration = 60;
 
 /**
  * Streams agentic web research as NDJSON events:

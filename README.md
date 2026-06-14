@@ -47,6 +47,22 @@ components/
 
 Theming is CSS-variable driven (see [`app/globals.css`](app/globals.css)); dark by default, light-mode toggle is a one-line attribute flip later.
 
+## Deploy to Vercel
+
+Standard Next.js app — Vercel auto-detects it. No database, no build config needed.
+
+1. [vercel.com/new](https://vercel.com/new) → **Import** the `Ilakkiyan/Zero2Hero` GitHub repo → **Deploy**.
+2. **Environment variables** (Project → Settings → Environment Variables):
+   - `GEMINI_MODEL` = `gemini-2.5-flash`
+   - **Leave `GEMINI_API_KEY` UNSET** → enforces BYOK (visitors use their own key; your quota is never spent).
+   - *(optional, for Calendar)* `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
+     `GOOGLE_REDIRECT_URI` = `https://<your-app>.vercel.app/api/calendar/callback`
+3. **If using Calendar:** add that same `https://<your-app>.vercel.app/api/calendar/callback`
+   to the OAuth client's **Authorized redirect URIs** in Google Cloud Console.
+4. Redeploy after setting env vars. Done — share the `.vercel.app` URL.
+
+> The agentic research route is capped at `maxDuration = 60` for the Hobby plan; raise to 300 on Pro if needed.
+
 ## Google Calendar sync setup
 
 The "Add to Google Calendar" button needs a Google OAuth client (one-time, ~5 min):
