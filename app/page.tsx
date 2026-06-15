@@ -5,6 +5,7 @@ import InterviewPanel from "@/components/InterviewPanel";
 import PlanPanel from "@/components/PlanPanel";
 import ThemeToggle from "@/components/ThemeToggle";
 import ApiKeyButton from "@/components/ApiKeyButton";
+import SetupBanner from "@/components/SetupBanner";
 import { apiHeaders } from "@/lib/apiClient";
 import type { ChatMessage } from "@/lib/llm";
 import type { Plan } from "@/lib/schema";
@@ -87,6 +88,8 @@ export default function Home() {
           <ThemeToggle />
         </div>
       </header>
+
+      <SetupBanner />
 
       <div className="grid flex-1 grid-cols-2 overflow-hidden">
         <section className="border-r border-border">

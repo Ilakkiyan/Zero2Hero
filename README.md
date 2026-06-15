@@ -4,13 +4,23 @@ The AI companion that turns a vague idea into a realistic execution plan.
 
 Interview → de-risked idea brief → living execution plan. Built for the USAII Global AI Hackathon 2026.
 
-## Quick start
+## Quick start (fully local — no API key)
+
+Zero2Hero runs on a local model via [Ollama](https://ollama.com/download) by default — private, free, no quota, no key.
 
 ```bash
+# 1. Install Ollama:  https://ollama.com/download
+#    macOS:  https://ollama.com/download/mac
+#    Windows https://ollama.com/download/windows
+#    Linux:  curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen2.5:7b        # 2. pull the model
+
 npm install
-cp .env.example .env.local   # then fill in ONE provider's keys
-npm run dev                  # http://localhost:3000
+cp .env.example .env.local    # defaults to LLM_PROVIDER=ollama
+npm run dev                   # 3. http://localhost:3000
 ```
+
+The home page shows a setup guide (with download links) and a live status check until the local model is ready. Web **research** is the one feature that needs a free Gemini key (web grounding) — optional, added via the in-app **Key** button.
 
 ## Bring your own key (BYOK)
 

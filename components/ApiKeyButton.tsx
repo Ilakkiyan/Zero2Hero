@@ -89,10 +89,11 @@ export default function ApiKeyButton() {
             className="w-full max-w-md rounded-2xl border border-border bg-surface p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-sm font-medium text-text">Your Gemini API key</p>
+            <p className="text-sm font-medium text-text">Gemini key — for web research (optional)</p>
             <p className="mt-1 text-xs leading-relaxed text-muted">
-              Bring your own key so the app runs on your free quota. Stored only in this browser
-              and sent with your requests — never saved on the server.{" "}
+              The app runs fully locally; this key only enables the web-research feature (Google
+              Search grounding). Stored only in this browser, sent per request, never saved on the
+              server.{" "}
               <a
                 href="https://aistudio.google.com/apikey"
                 target="_blank"
