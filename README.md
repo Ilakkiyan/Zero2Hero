@@ -41,15 +41,16 @@ Users can paste their own free Gemini key via the **Key** button in the header �
 - **Local dev:** set `GEMINI_API_KEY` in `.env.local` and the app just works.
 - **Public deploy (Devpost):** *don't* set `GEMINI_API_KEY` in the host env → every visitor must bring their own key, so your quota is never spent (and there's no shared key to spam).
 
-## Choosing a provider
+## Choosing a provider — in-app toggle
 
-The whole app talks to one seam — [`lib/llm.ts`](lib/llm.ts). Set `LLM_PROVIDER` in `.env.local` to switch backends with zero code changes:
+A **Cloud / Local toggle** in the header switches the model backend per request (no restart):
 
-| Provider | `LLM_PROVIDER` | Notes |
-|----------|----------------|-------|
-| Google Gemini | `gemini` | Free tier, no credit card — **default for the demo** |
-| Ollama (local) | `ollama` | Free + unlimited — best for dev iteration |
-| Azure OpenAI | `azure` | $100 Azure-for-Students credit — demo-day fallback |
+| Toggle | Provider | Notes |
+|--------|----------|-------|
+| **☁ Cloud** | Azure OpenAI | Quality + deployable; runs on the $100 Azure-for-Students credit. Set `AZURE_OPENAI_*` in `.env.local`. |
+| **💻 Local** | Ollama (`qwen2.5:7b`) | Free, private, offline — the robust fallback. |
+
+The toggle sends an `x-llm-provider` header that [`lib/llm.ts`](lib/llm.ts) honors per request (server `LLM_PROVIDER` is the default when no header). Gemini remains available as an `LLM_PROVIDER`/research-search option.
 
 ## Architecture
 

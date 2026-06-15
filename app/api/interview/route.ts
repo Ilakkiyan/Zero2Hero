@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
+  const llmProvider = req.headers.get("x-llm-provider") || undefined;
 
   let messages: ChatMessage[];
   try {
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
       try {
         for await (const chunk of chatStream(
           [{ role: "system", content: INTERVIEW_SYSTEM }, ...messages],
-          { apiKey },
+          { apiKey, provider: llmProvider },
         )) {
           buf += chunk;
 

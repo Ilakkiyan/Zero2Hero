@@ -31,11 +31,38 @@ export function clearGeminiKey(): void {
   }
 }
 
-/** JSON headers plus the user's key when one is set. */
+// ── Provider preference (UI toggle: cloud=Azure | local=Ollama) ──────
+const PROVIDER_STORAGE = "z2h_provider";
+export type ProviderPref = "cloud" | "local";
+
+export function getProviderPref(): ProviderPref {
+  if (typeof window === "undefined") return "local";
+  try {
+    return localStorage.getItem(PROVIDER_STORAGE) === "cloud" ? "cloud" : "local";
+  } catch {
+    return "local";
+  }
+}
+
+export function setProviderPref(v: ProviderPref): void {
+  try {
+    localStorage.setItem(PROVIDER_STORAGE, v);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Map the UI preference to the server provider name. */
+function providerName(): string {
+  return getProviderPref() === "cloud" ? "azure" : "ollama";
+}
+
+/** JSON headers plus the chosen provider and the user's key when set. */
 export function apiHeaders(): HeadersInit {
   const key = getGeminiKey();
   return {
     "Content-Type": "application/json",
+    "x-llm-provider": providerName(),
     ...(key ? { "x-gemini-key": key } : {}),
   };
 }

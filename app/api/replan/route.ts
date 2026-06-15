@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
   }
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
+  const llmProvider = req.headers.get("x-llm-provider") || undefined;
 
   try {
     const { plan, note } = (await req.json()) as { plan: unknown; note: unknown };
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
         { role: "system", content: REPLAN_SYSTEM },
         { role: "user", content: replanUserMessage(currentPlan.data, note) },
       ],
-      { apiKey },
+      { apiKey, provider: llmProvider },
     );
 
     const revised = PlanSchema.safeParse(raw);

@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
+  const llmProvider = req.headers.get("x-llm-provider") || undefined;
 
   let brief;
   try {
@@ -54,7 +55,11 @@ export async function POST(req: NextRequest) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       try {
         const searxUrl = process.env.SEARXNG_URL || "http://localhost:8080";
-        for await (const event of runAgenticResearch(brief, { geminiKey: apiKey, searxUrl })) {
+        for await (const event of runAgenticResearch(brief, {
+          geminiKey: apiKey,
+          searxUrl,
+          provider: llmProvider,
+        })) {
           send(event);
         }
         send({ type: "done" });

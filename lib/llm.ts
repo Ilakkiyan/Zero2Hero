@@ -22,6 +22,8 @@ export interface ChatOptions {
   temperature?: number;
   /** Per-request "bring your own key" override (Gemini). Falls back to env. */
   apiKey?: string;
+  /** Per-request provider override ("azure" | "ollama" | "gemini"). */
+  provider?: string;
 }
 
 /** User-provided key wins; otherwise the env fallback. Friendly error if neither. */
@@ -230,8 +232,10 @@ export async function fetchWithRetry(url: string, init: RequestInit, maxRetries 
   }
 }
 
-function selectProvider(): LLMProvider {
-  const which = (process.env.LLM_PROVIDER || "gemini").toLowerCase();
+const KNOWN_PROVIDERS = new Set(["azure", "gemini", "ollama"]);
+const providerCache = new Map<string, LLMProvider>();
+
+function makeProvider(which: string): LLMProvider {
   switch (which) {
     case "azure":
       return new AzureOpenAIProvider();
@@ -240,25 +244,38 @@ function selectProvider(): LLMProvider {
     case "ollama":
       return new OllamaProvider();
     default:
-      throw new Error(`Unknown LLM_PROVIDER "${which}". Use azure | gemini | ollama.`);
+      throw new Error(`Unknown LLM provider "${which}". Use azure | gemini | ollama.`);
   }
 }
 
-// Lazily built so a missing key for an unused provider never crashes the app.
-let _provider: LLMProvider | null = null;
-export function provider(): LLMProvider {
-  if (!_provider) _provider = selectProvider();
-  return _provider;
+/**
+ * Resolve a provider per request: an explicit valid name (from the UI toggle's
+ * x-llm-provider header) wins; otherwise the LLM_PROVIDER env default; otherwise
+ * Ollama. Instances are cached and built lazily, so an unconfigured provider
+ * never crashes the app until it's actually used.
+ */
+export function getProvider(name?: string): LLMProvider {
+  const requested = name?.toLowerCase();
+  const which =
+    requested && KNOWN_PROVIDERS.has(requested)
+      ? requested
+      : (process.env.LLM_PROVIDER || "ollama").toLowerCase();
+  let p = providerCache.get(which);
+  if (!p) {
+    p = makeProvider(which);
+    providerCache.set(which, p);
+  }
+  return p;
 }
 
 /** Plain text completion. */
 export function chat(messages: ChatMessage[], opts?: ChatOptions): Promise<string> {
-  return provider().chat(messages, opts);
+  return getProvider(opts?.provider).chat(messages, opts);
 }
 
 /** Streaming text completion — yields chunks as they arrive. */
 export function chatStream(messages: ChatMessage[], opts?: ChatOptions): AsyncGenerator<string> {
-  return provider().stream(messages, opts);
+  return getProvider(opts?.provider).stream(messages, opts);
 }
 
 // ── Stream parsing helpers ───────────────────────────────────────────
@@ -313,7 +330,7 @@ async function* ndjson(res: Response): AsyncGenerator<string> {
 
 /** JSON completion — asks the provider for strict JSON and parses it. */
 export async function chatJSON<T = unknown>(messages: ChatMessage[], opts?: ChatOptions): Promise<T> {
-  const raw = await provider().chat(messages, { ...opts, json: true });
+  const raw = await getProvider(opts?.provider).chat(messages, { ...opts, json: true });
   return JSON.parse(stripFences(raw)) as T;
 }
 

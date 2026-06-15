@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
+  const llmProvider = req.headers.get("x-llm-provider") || undefined;
 
   try {
     const { messages } = (await req.json()) as { messages: ChatMessage[] };
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
         ...messages,
         { role: "user", content: "Produce the execution plan JSON now." },
       ],
-      { apiKey },
+      { apiKey, provider: llmProvider },
     );
 
     const parsed = PlanSchema.safeParse(raw);

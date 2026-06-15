@@ -6,7 +6,8 @@ import PlanPanel from "@/components/PlanPanel";
 import ThemeToggle from "@/components/ThemeToggle";
 import ApiKeyButton from "@/components/ApiKeyButton";
 import SetupBanner from "@/components/SetupBanner";
-import { apiHeaders } from "@/lib/apiClient";
+import ProviderToggle from "@/components/ProviderToggle";
+import { apiHeaders, getProviderPref, type ProviderPref } from "@/lib/apiClient";
 import type { ChatMessage } from "@/lib/llm";
 import type { Plan } from "@/lib/schema";
 
@@ -17,6 +18,11 @@ export default function Home() {
   const [planning, setPlanning] = useState(false);
   const [replanning, setReplanning] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [providerPref, setProviderPref] = useState<ProviderPref>("local");
+
+  useEffect(() => {
+    setProviderPref(getProviderPref());
+  }, []);
 
   // Persist session so a reload (or the Google OAuth redirect) doesn't wipe it.
   const STORAGE_KEY = "z2h_state";
@@ -84,12 +90,13 @@ export default function Home() {
         <h1 className="text-base font-semibold tracking-tight text-text">Zero2Hero</h1>
         <span className="text-sm text-muted">idea → execution plan</span>
         <div className="ml-auto flex items-center gap-2">
+          <ProviderToggle value={providerPref} onChange={setProviderPref} />
           <ApiKeyButton />
           <ThemeToggle />
         </div>
       </header>
 
-      <SetupBanner />
+      <SetupBanner provider={providerPref} />
 
       <div className="grid flex-1 grid-cols-2 overflow-hidden">
         <section className="border-r border-border">

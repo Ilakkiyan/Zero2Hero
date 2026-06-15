@@ -31,6 +31,8 @@ export interface ResearchOptions {
   geminiKey?: string;
   /** SearxNG base URL for local search (default http://localhost:8080). */
   searxUrl?: string;
+  /** LLM provider for the plan/synthesis brain (azure | ollama | gemini). */
+  provider?: string;
 }
 
 // ── SearxNG (local search) ───────────────────────────────────────────
@@ -125,11 +127,15 @@ async function groundedSearch(
 }
 
 // ── Planning (active LLM provider — local by default) ────────────────
-async function planQuestions(brief: IdeaBrief, geminiKey?: string): Promise<string[]> {
+async function planQuestions(
+  brief: IdeaBrief,
+  geminiKey?: string,
+  provider?: string,
+): Promise<string[]> {
   try {
     const data = await chatJSON<{ questions?: unknown }>(
       [{ role: "user", content: researchPlanMessage(brief) }],
-      { apiKey: geminiKey },
+      { apiKey: geminiKey, provider },
     );
     const qs = Array.isArray(data.questions)
       ? data.questions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
@@ -155,7 +161,7 @@ export async function* runAgenticResearch(
   yield { type: "meta", backend: useCloud ? "cloud" : "local" };
 
   // 1. PLAN (local brain)
-  const questions = await planQuestions(brief, opts.geminiKey);
+  const questions = await planQuestions(brief, opts.geminiKey, opts.provider);
   yield { type: "plan", questions };
 
   // 2. SEARCH (pluggable backend)
@@ -183,7 +189,7 @@ export async function* runAgenticResearch(
   // 3. SYNTHESIZE (local brain)
   for await (const chunk of chatStream(
     [{ role: "user", content: researchSynthesisMessage(brief, findings) }],
-    { apiKey: opts.geminiKey },
+    { apiKey: opts.geminiKey, provider: opts.provider },
   )) {
     yield { type: "token", value: chunk };
   }
