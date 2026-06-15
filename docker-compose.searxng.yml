@@ -1,0 +1,12 @@
+# Local web-search engine for Zero2Hero research (no API key).
+#   docker compose -f docker-compose.searxng.yml up -d
+# Serves on http://localhost:8080 with the JSON API enabled (searxng/settings.yml).
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: zero2hero-searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    restart: unless-stopped

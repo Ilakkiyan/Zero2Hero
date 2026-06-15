@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       const send = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
       try {
-        for await (const event of runAgenticResearch(brief, apiKey)) {
+        const searxUrl = process.env.SEARXNG_URL || "http://localhost:8080";
+        for await (const event of runAgenticResearch(brief, { geminiKey: apiKey, searxUrl })) {
           send(event);
         }
         send({ type: "done" });

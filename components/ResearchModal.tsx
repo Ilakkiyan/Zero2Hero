@@ -11,6 +11,7 @@ interface Source {
 type StepState = "pending" | "searching" | "done";
 
 type ResearchEvent =
+  | { type: "meta"; backend: "local" | "cloud" }
   | { type: "plan"; questions: string[] }
   | { type: "step"; index: number; question: string }
   | { type: "step_done"; index: number; sourceCount: number }
@@ -31,6 +32,7 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
   const [sources, setSources] = useState<Source[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
+  const [backend, setBackend] = useState<"local" | "cloud" | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
@@ -63,7 +65,9 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
             if (!line) continue;
             const ev = JSON.parse(line) as ResearchEvent;
 
-            if (ev.type === "plan") {
+            if (ev.type === "meta") {
+              setBackend(ev.backend);
+            } else if (ev.type === "plan") {
               setQuestions(ev.questions);
               setSteps(ev.questions.map(() => "pending"));
               setStepCounts(ev.questions.map(() => 0));
@@ -110,7 +114,14 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wide text-muted">Live research</p>
-            <p className="truncate text-sm font-medium text-text">plan → search → synthesize</p>
+            <p className="truncate text-sm font-medium text-text">
+              plan → search → synthesize
+              {backend && (
+                <span className="ml-2 text-xs font-normal text-muted">
+                  · {backend === "local" ? "local · SearxNG" : "cloud · Gemini"}
+                </span>
+              )}
+            </p>
           </div>
           <button
             onClick={onClose}

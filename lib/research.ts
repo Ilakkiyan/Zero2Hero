@@ -1,16 +1,16 @@
 import type { IdeaBrief } from "@/lib/schema";
-import { chatJSON, chatStream, fetchWithRetry, resolveGeminiKey } from "@/lib/llm";
+import { chatJSON, chatStream, fetchWithRetry } from "@/lib/llm";
 import { researchPlanMessage, researchSynthesisMessage } from "@/lib/prompts";
 
 /**
- * Agentic web research. Three phases, all emitted as a stream of events so the
- * UI can show the agent working:
- *   1. PLAN      — generate focused sub-questions (1 LLM call)
- *   2. SEARCH    — one grounded Google-Search call per question (sequential, so
- *                  progress is visible and free-tier rate limits stay happy)
- *   3. SYNTHESIZE — stream a decision-useful brief from the gathered findings
+ * Agentic web research. Planning and synthesis always run on the active LLM
+ * provider (local Ollama by default). Only the SEARCH step reaches the web,
+ * via a pluggable backend:
+ *   - SearxNG (local, default) — no key, fully private
+ *   - Gemini Google Search grounding — used when the user brings a cloud key
  *
- * Grounding is Gemini-only, so the whole flow requires LLM_PROVIDER=gemini.
+ * Phases stream as events so the UI can show the agent working:
+ *   PLAN → SEARCH (one call per question) → SYNTHESIZE.
  */
 
 export interface ResearchSource {
@@ -19,12 +19,60 @@ export interface ResearchSource {
 }
 
 export type ResearchEvent =
+  | { type: "meta"; backend: "local" | "cloud" }
   | { type: "plan"; questions: string[] }
   | { type: "step"; index: number; question: string }
   | { type: "step_done"; index: number; sourceCount: number }
   | { type: "token"; value: string }
   | { type: "sources"; value: ResearchSource[] };
 
+export interface ResearchOptions {
+  /** When set, search uses Gemini grounding (cloud) instead of SearxNG. */
+  geminiKey?: string;
+  /** SearxNG base URL for local search (default http://localhost:8080). */
+  searxUrl?: string;
+}
+
+// ── SearxNG (local search) ───────────────────────────────────────────
+async function searxSearch(
+  question: string,
+  searxUrl: string,
+): Promise<{ text: string; sources: ResearchSource[] }> {
+  const url = `${searxUrl.replace(/\/$/, "")}/search?q=${encodeURIComponent(question)}&format=json`;
+
+  let res: Response;
+  try {
+    res = await fetchWithRetry(url, {
+      headers: { Accept: "application/json", "User-Agent": "Zero2Hero/1.0" },
+    });
+  } catch {
+    throw new Error(
+      `SearxNG not reachable at ${searxUrl}. Start it (docker compose -f docker-compose.searxng.yml up -d) or add a Gemini key.`,
+    );
+  }
+  if (!res.ok) {
+    throw new Error(`SearxNG ${res.status} at ${searxUrl} — is the JSON format enabled in settings.yml?`);
+  }
+
+  const data = (await res.json()) as {
+    results?: { url?: string; title?: string; content?: string }[];
+  };
+  const results = (data.results ?? []).slice(0, 5);
+
+  const sources: ResearchSource[] = [];
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const r of results) {
+    if (r.url && !seen.has(r.url)) {
+      seen.add(r.url);
+      sources.push({ title: r.title || r.url, uri: r.url });
+    }
+    if (r.content) lines.push(`- ${r.title ?? ""}: ${r.content}`);
+  }
+  return { text: lines.join("\n") || "(no results found)", sources };
+}
+
+// ── Gemini grounding (cloud search) ──────────────────────────────────
 interface GroundChunk {
   web?: { uri?: string; title?: string };
 }
@@ -35,40 +83,11 @@ interface GeminiResponse {
   }[];
 }
 
-function ensureGemini() {
-  const provider = (process.env.LLM_PROVIDER || "gemini").toLowerCase();
-  if (provider !== "gemini") {
-    throw new Error("Research needs the Gemini provider (web grounding). Set LLM_PROVIDER=gemini.");
-  }
-}
-
-async function planQuestions(brief: IdeaBrief, apiKey?: string): Promise<string[]> {
-  try {
-    const data = await chatJSON<{ questions?: unknown }>(
-      [{ role: "user", content: researchPlanMessage(brief) }],
-      { apiKey },
-    );
-    const qs = Array.isArray(data.questions)
-      ? data.questions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
-      : [];
-    if (qs.length) return qs.slice(0, 5);
-  } catch {
-    // fall through to defaults
-  }
-  return [
-    `Who are the direct competitors and similar products for: ${brief.problem}?`,
-    `What do users dislike about existing solutions for ${brief.targetUser}?`,
-    `What skills and technology are needed to build a product that solves: ${brief.problem}?`,
-    `Is there growing market demand among ${brief.targetUser} for solving: ${brief.problem}?`,
-  ];
-}
-
 async function groundedSearch(
   question: string,
   apiKey: string,
 ): Promise<{ text: string; sources: ResearchSource[] }> {
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const res = await fetchWithRetry(url, {
     method: "POST",
@@ -105,38 +124,66 @@ async function groundedSearch(
   return { text, sources };
 }
 
+// ── Planning (active LLM provider — local by default) ────────────────
+async function planQuestions(brief: IdeaBrief, geminiKey?: string): Promise<string[]> {
+  try {
+    const data = await chatJSON<{ questions?: unknown }>(
+      [{ role: "user", content: researchPlanMessage(brief) }],
+      { apiKey: geminiKey },
+    );
+    const qs = Array.isArray(data.questions)
+      ? data.questions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
+      : [];
+    if (qs.length) return qs.slice(0, 5);
+  } catch {
+    // fall through to defaults
+  }
+  return [
+    `Who are the direct competitors and similar products for: ${brief.problem}?`,
+    `What do users dislike about existing solutions for ${brief.targetUser}?`,
+    `What skills and technology are needed to build a product that solves: ${brief.problem}?`,
+    `Is there growing market demand among ${brief.targetUser} for solving: ${brief.problem}?`,
+  ];
+}
+
 export async function* runAgenticResearch(
   brief: IdeaBrief,
-  apiKey?: string,
+  opts: ResearchOptions = {},
 ): AsyncGenerator<ResearchEvent> {
-  ensureGemini();
-  const key = resolveGeminiKey(apiKey);
+  const useCloud = !!opts.geminiKey;
+  const searxUrl = opts.searxUrl || "http://localhost:8080";
+  yield { type: "meta", backend: useCloud ? "cloud" : "local" };
 
-  // 1. PLAN
-  const questions = await planQuestions(brief, key);
+  // 1. PLAN (local brain)
+  const questions = await planQuestions(brief, opts.geminiKey);
   yield { type: "plan", questions };
 
-  // 2. SEARCH (sequential)
+  // 2. SEARCH (pluggable backend)
   const findings: { question: string; text: string }[] = [];
   const allSources = new Map<string, ResearchSource>();
 
   for (let i = 0; i < questions.length; i++) {
     yield { type: "step", index: i, question: questions[i] };
     try {
-      const { text, sources } = await groundedSearch(questions[i], key);
+      const { text, sources } = useCloud
+        ? await groundedSearch(questions[i], opts.geminiKey!)
+        : await searxSearch(questions[i], searxUrl);
       findings.push({ question: questions[i], text });
       for (const s of sources) allSources.set(s.uri, s);
       yield { type: "step_done", index: i, sourceCount: sources.length };
-    } catch {
+    } catch (err) {
+      // A failure on the very first search (backend down / bad key) is fatal —
+      // surface it instead of synthesizing from nothing.
+      if (i === 0) throw err;
       findings.push({ question: questions[i], text: "(search failed)" });
       yield { type: "step_done", index: i, sourceCount: 0 };
     }
   }
 
-  // 3. SYNTHESIZE (streamed)
+  // 3. SYNTHESIZE (local brain)
   for await (const chunk of chatStream(
     [{ role: "user", content: researchSynthesisMessage(brief, findings) }],
-    { apiKey: key },
+    { apiKey: opts.geminiKey },
   )) {
     yield { type: "token", value: chunk };
   }

@@ -1,0 +1,16 @@
+# Minimal SearxNG config for Zero2Hero local research.
+# `use_default_settings: true` inherits all upstream defaults; we only enable
+# the JSON API the research agent needs and disable the bot limiter so local
+# programmatic queries aren't blocked.
+use_default_settings: true
+
+server:
+  # Local dev only — change this if you ever expose the instance.
+  secret_key: "zero2hero-local-dev-change-me"
+  limiter: false
+  image_proxy: false
+
+search:
+  formats:
+    - html
+    - json

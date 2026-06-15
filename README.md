@@ -20,7 +20,19 @@ cp .env.example .env.local    # defaults to LLM_PROVIDER=ollama
 npm run dev                   # 3. http://localhost:3000
 ```
 
-The home page shows a setup guide (with download links) and a live status check until the local model is ready. Web **research** is the one feature that needs a free Gemini key (web grounding) — optional, added via the in-app **Key** button.
+The home page shows a setup guide (with download links) and a live status check until the local model is ready.
+
+### Web research (also local — SearxNG)
+
+Research plans its sub-questions and synthesizes on your **local model**; only the web *search* is external, via a local **SearxNG** instance (no key). Needs Docker:
+
+```bash
+docker compose -f docker-compose.searxng.yml up -d   # serves http://localhost:8080
+```
+
+The JSON API is pre-enabled in [`searxng/settings.yml`](searxng/settings.yml). Then click **🔎 Research** — it searches locally.
+
+**Prefer cloud search?** Add a free Gemini key via the in-app **Key** button and research uses Gemini Google-Search grounding instead — you always have that option. (`SEARXNG_URL` overrides the search endpoint.)
 
 ## Bring your own key (BYOK)
 
