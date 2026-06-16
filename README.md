@@ -52,6 +52,28 @@ A **Cloud / Local toggle** in the header switches the model backend per request 
 
 The toggle sends an `x-llm-provider` header that [`lib/llm.ts`](lib/llm.ts) honors per request (server `LLM_PROVIDER` is the default when no header). Gemini remains available as an `LLM_PROVIDER`/research-search option.
 
+## Run as a desktop app (Electron)
+
+Zero2Hero also runs as a native desktop window — Electron wraps the local Next.js
+server, so every feature (interview, plan, research, calendar…) works the same.
+
+```bash
+npm install
+npm run desktop:dev     # dev: launches a desktop window against `next dev`
+# or
+npm run desktop         # prod: next build, then open the app window
+```
+
+Build installers (`.exe` / `.dmg` / `AppImage`) with:
+
+```bash
+npm run dist            # output in ./release  (test on your own machine)
+```
+
+External links (citations, "get a key") open in the system browser. The desktop
+build is fully local-capable — flip the header toggle to **💻 Local** and it
+runs offline on Ollama.
+
 ## Architecture
 
 ```

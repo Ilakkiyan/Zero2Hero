@@ -2,11 +2,15 @@
   "name": "zero2hero",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "desktop:dev": "concurrently -k \"next dev\" \"wait-on http://localhost:3000 && cross-env ELECTRON_DEV=1 electron .\"",
+    "desktop": "next build && electron .",
+    "dist": "next build && electron-builder"
   },
   "dependencies": {
     "next": "^14.2.35",
@@ -19,8 +23,34 @@
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.19",
+    "concurrently": "8.2.2",
+    "cross-env": "7.0.3",
+    "electron": "31.3.1",
+    "electron-builder": "24.13.3",
     "postcss": "8.4.39",
     "tailwindcss": "3.4.6",
-    "typescript": "5.5.3"
+    "typescript": "5.5.3",
+    "wait-on": "7.2.0"
+  },
+  "build": {
+    "appId": "com.zero2hero.app",
+    "productName": "Zero2Hero",
+    "files": [
+      "electron/**/*",
+      ".next/**/*",
+      "public/**/*",
+      "package.json",
+      "next.config.mjs"
+    ],
+    "asarUnpack": [
+      "node_modules/next/**/*",
+      ".next/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
   }
 }
