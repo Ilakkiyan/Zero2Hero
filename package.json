@@ -8,6 +8,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:all": "npm run build && npm run test && npm run test:e2e",
+    "llm:pull": "ollama pull qwen2.5:7b",
+    "llm:smoke": "node scripts/ollama-smoke.mjs",
     "desktop:dev": "concurrently -k \"next dev\" \"wait-on http://localhost:3000 && cross-env ELECTRON_DEV=1 electron .\"",
     "desktop": "next build && electron .",
     "dist": "next build && electron-builder"
@@ -19,17 +25,28 @@
     "zod": "3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "20.14.0",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "10.4.19",
     "concurrently": "8.2.2",
     "cross-env": "7.0.3",
     "electron": "31.3.1",
     "electron-builder": "24.13.3",
+    "jsdom": "^25.0.1",
+    "msw": "^2.12.3",
+    "playwright": "^1.57.0",
     "postcss": "8.4.39",
+    "start-server-and-test": "^2.1.2",
     "tailwindcss": "3.4.6",
     "typescript": "5.5.3",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9",
     "wait-on": "7.2.0"
   },
   "build": {
@@ -49,8 +66,14 @@
     "directories": {
       "output": "release"
     },
-    "win": { "target": "nsis" },
-    "mac": { "target": "dmg" },
-    "linux": { "target": "AppImage" }
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }

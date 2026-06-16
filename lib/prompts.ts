@@ -32,7 +32,10 @@ The JSON MUST match this shape exactly:
       "id": string,               // short slug e.g. "a1"
       "claim": string,            // a belief the plan depends on
       "risk": "high" | "med" | "low",
-      "cheapTest": string         // the cheapest experiment to prove/kill it THIS week
+      "cheapTest": string,        // the cheapest experiment to prove/kill it THIS week
+      "status": "untested",       // optional; default is "untested"
+      "resultNote": "",           // optional; default is empty
+      "updatedAt": null           // optional; default is null
     }
   ],
   "milestones": [
@@ -50,6 +53,7 @@ The JSON MUST match this shape exactly:
 Guidance:
 - Surface 3-5 assumptions. At least one MUST be non-obvious — something the user did not say out loud.
 - Every high-risk assumption should have a milestone that validates it early.
+- New assumptions should start as status "untested" with no result note.
 - Milestones move toward a first prototype/pilot, not a finished product.
 - Keep it specific to THIS idea. No generic startup boilerplate.`;
 
@@ -84,12 +88,14 @@ export const REPLAN_SYSTEM = `You are Zero2Hero's planner, REVISING an existing 
 Return the FULL updated plan in this exact shape:
 {
   "brief": { "problem": string, "targetUser": string, "riskiestAssumption": string, "definitionOfWin": string },
-  "assumptions": [ { "id": string, "claim": string, "risk": "high"|"med"|"low", "cheapTest": string } ],
+  "assumptions": [ { "id": string, "claim": string, "risk": "high"|"med"|"low", "cheapTest": string, "status": "untested"|"running"|"passed"|"failed"|"inconclusive", "resultNote": string, "updatedAt": string|null } ],
   "milestones": [ { "id": string, "phase": string, "goal": string, "validates": string|null, "tasks": [string], "status": "todo"|"doing"|"done" } ]
 }
 
 Revision rules:
 - Treat the user's update as ground truth about reality. If it invalidates an assumption, lower its risk or replace it; if it surfaces a NEW risk, add it.
+- Preserve assumption status/resultNote/updatedAt when the same assumption carries over. New assumptions start as "untested" with an empty resultNote and null updatedAt.
+- If the user says an assumption passed, failed, or was inconclusive, reflect that status directly and use their result as resultNote.
 - Re-order, rewrite, add, or drop milestones so the plan reflects what was just learned. Mark milestones that are clearly done as "done".
 - Update brief.riskiestAssumption if the riskiest thing has changed.
 - Keep ids stable where a concept carries over; only mint new ids for genuinely new items.
@@ -124,6 +130,43 @@ ${f}
 Write markdown with these sections (short bullets): ## Similar products / existing solutions, ## Competition & differentiation, ## Required skills & tech, ## Market signals. End with "## Bottom line" — 1-2 sentences on how crowded the space is and where the opening is. No preamble.`;
 }
 
+/**
+ * Step 4 of research (Evidence Engine): map the findings back onto the plan's
+ * assumptions so research stops being a throwaway brief and actually de-risks
+ * the plan. The model decides whether each assumption is supported/undermined,
+ * attaches a cited source, and may suggest a status change.
+ */
+export function evidenceMapMessage(
+  brief: IdeaBrief,
+  assumptions: { id: string; claim: string; risk: string }[],
+  findings: { question: string; text: string }[],
+): string {
+  const a = assumptions.map((x) => `- ${x.id} (${x.risk} risk): ${x.claim}`).join("\n");
+  const f = findings.map((x, i) => `### ${i + 1}. ${x.question}\n${x.text}`).join("\n\n");
+  return `Link these web-research findings to the plan's assumptions to de-risk it.
+
+IDEA
+Problem: ${brief.problem}
+Target user: ${brief.targetUser}
+
+ASSUMPTIONS
+${a}
+
+FINDINGS (each bullet starts with a source title; cite the real source)
+${f}
+
+For each assumption the findings genuinely bear on, output one link. Decide the stance:
+- "undermines" — a finding makes the claim look weaker / already-solved / contested.
+- "supports" — a finding backs the claim up.
+- "neutral" — relevant context but neither.
+Attach the single most relevant source (use a real title + URL from the findings — never invent one). Keep "snippet" to one sentence grounded in the findings.
+Optionally set "suggestedStatus" to "failed", "inconclusive", or "passed" when the evidence is strong enough to change the assumption's status; otherwise null.
+
+Return JSON only:
+{"links":[{"assumptionId":"a1","stance":"undermines","snippet":"...","sourceTitle":"...","sourceUri":"https://...","suggestedStatus":"inconclusive"}]}
+Only include assumptions the findings actually speak to. If none apply, return {"links":[]}.`;
+}
+
 export const PREMORTEM_SYSTEM = `You are Zero2Hero running a PRE-MORTEM. Imagine it is 30 days from now and this project has clearly FAILED. Working backward, identify why it died.
 
 Output (markdown, no preamble):
@@ -140,6 +183,28 @@ export function premortemUserMessage(plan: Plan): string {
 ${JSON.stringify(plan, null, 2)}
 
 Write the pre-mortem now.`;
+}
+
+export const CHALLENGE_SYSTEM = `You are Zero2Hero's adversarial cofounder. Your job is to STRESS-TEST one assumption — not to be agreeable.
+
+Rules:
+- Open with the single strongest, most specific reason this assumption might be WRONG or already-solved, grounded in how this kind of idea usually fails. Then name the cheapest experiment that would expose it.
+- Keep every turn to 2-4 sentences. No preamble, no "great point!".
+- If the founder defends it well, concede THAT specific point in one line and say what would still worry you. Otherwise press with a sharper, DIFFERENT objection — don't repeat yourself.
+- Never drift into generic startup advice. Stay on this assumption and this idea.`;
+
+/** The opening turn: tell the adversary which assumption to attack. */
+export function challengeOpenMessage(a: {
+  claim: string;
+  risk: string;
+  cheapTest: string;
+}): string {
+  return `Challenge this assumption from my plan. Make the strongest case it's wrong or already-solved, and name the cheapest test that would expose it.
+
+ASSUMPTION (${a.risk} risk): ${a.claim}
+Its current cheap test: ${a.cheapTest}
+
+Open your challenge now.`;
 }
 
 /** Build the re-plan request from the current plan + the user's reality update. */

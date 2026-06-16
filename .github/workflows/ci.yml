@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Default CI is fully mocked + offline: no Azure / Gemini / Google / SearxNG /
+# Ollama required. The real local-LLM smoke (RUN_LOCAL_LLM=1 npm run llm:smoke)
+# is intentionally left out so CI stays fast and deterministic.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit / API / component tests
+        run: npm run test
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (mocked API)
+        run: npm run test:e2e

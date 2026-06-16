@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { IdeaBrief } from "@/lib/schema";
+import type { EvidenceLink } from "@/lib/research";
 import { apiHeaders } from "@/lib/apiClient";
 
 interface Source {
@@ -16,20 +17,39 @@ type ResearchEvent =
   | { type: "step"; index: number; question: string }
   | { type: "step_done"; index: number; sourceCount: number }
   | { type: "token"; value: string }
+  | { type: "evidence"; links: EvidenceLink[] }
   | { type: "sources"; value: Source[] }
   | { type: "done" }
   | { type: "error"; message: string };
+
+const stanceChip: Record<EvidenceLink["stance"], string> = {
+  supports: "border-risk-low text-risk-low",
+  undermines: "border-risk-high text-risk-high",
+  neutral: "border-border text-muted",
+};
 
 /**
  * Agentic research view: shows the research plan, each grounded search lighting
  * up as it runs, then the streamed synthesis and cited sources.
  */
-export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; onClose: () => void }) {
+export default function ResearchModal({
+  brief,
+  assumptions = [],
+  onApplyEvidence,
+  onClose,
+}: {
+  brief: IdeaBrief;
+  assumptions?: { id: string; claim: string; risk: string }[];
+  onApplyEvidence?: (links: EvidenceLink[]) => void;
+  onClose: () => void;
+}) {
   const [questions, setQuestions] = useState<string[]>([]);
   const [steps, setSteps] = useState<StepState[]>([]);
   const [stepCounts, setStepCounts] = useState<number[]>([]);
   const [text, setText] = useState("");
   const [sources, setSources] = useState<Source[]>([]);
+  const [evidence, setEvidence] = useState<EvidenceLink[]>([]);
+  const [applied, setApplied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
   const [backend, setBackend] = useState<"local" | "cloud" | null>(null);
@@ -44,7 +64,7 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
         const res = await fetch("/api/research", {
           method: "POST",
           headers: apiHeaders(),
-          body: JSON.stringify({ brief }),
+          body: JSON.stringify({ brief, assumptions }),
         });
         if (!res.ok || !res.body) {
           const d = await res.json().catch(() => ({}));
@@ -78,6 +98,8 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
               setStepCounts((c) => c.map((v, idx) => (idx === ev.index ? ev.sourceCount : v)));
             } else if (ev.type === "token") {
               setText((p) => p + ev.value);
+            } else if (ev.type === "evidence") {
+              setEvidence(ev.links);
             } else if (ev.type === "sources") {
               setSources(ev.value);
             } else if (ev.type === "error") {
@@ -177,6 +199,56 @@ export default function ResearchModal({ brief, onClose }: { brief: IdeaBrief; on
                 {text}
                 {!finished && <span className="text-muted">▍</span>}
               </pre>
+            </div>
+          )}
+
+          {/* Evidence linked to the plan's assumptions */}
+          {evidence.length > 0 && (
+            <div className="border-t border-border pt-4">
+              <div className="mb-2 flex items-center gap-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted">
+                  Evidence linked to your assumptions
+                </p>
+                {onApplyEvidence && (
+                  <button
+                    onClick={() => {
+                      onApplyEvidence(evidence);
+                      setApplied(true);
+                    }}
+                    disabled={applied}
+                    className="ml-auto rounded-lg bg-accent px-2.5 py-1 text-xs font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    {applied ? "Applied to plan ✓" : `Apply ${evidence.length} to plan`}
+                  </button>
+                )}
+              </div>
+              <ul className="space-y-2">
+                {evidence.map((e, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <span
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${stanceChip[e.stance]}`}
+                    >
+                      {e.stance}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-text">
+                        <span className="text-muted">{e.assumptionId}:</span> {e.snippet}
+                        {e.suggestedStatus && (
+                          <span className="ml-1 text-muted">→ suggests “{e.suggestedStatus}”</span>
+                        )}
+                      </p>
+                      <a
+                        href={e.source.uri}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-accent underline-offset-2 hover:underline"
+                      >
+                        {e.source.title}
+                      </a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

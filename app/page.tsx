@@ -9,12 +9,15 @@ import SetupBanner from "@/components/SetupBanner";
 import ProviderToggle from "@/components/ProviderToggle";
 import { apiHeaders, getProviderPref, type ProviderPref } from "@/lib/apiClient";
 import type { ChatMessage } from "@/lib/llm";
-import type { Plan } from "@/lib/schema";
+import { PlanSchema, PlanEventSchema, type Plan, type PlanEvent } from "@/lib/schema";
+import { summarizeValidation } from "@/lib/validation";
+import { appendEvent, makeEvent, type PlanChangeMeta } from "@/lib/history";
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [readyToPlan, setReadyToPlan] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [history, setHistory] = useState<PlanEvent[]>([]);
   const [planning, setPlanning] = useState(false);
   const [replanning, setReplanning] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -33,7 +36,14 @@ export default function Home() {
       if (raw) {
         const s = JSON.parse(raw);
         if (Array.isArray(s.messages)) setMessages(s.messages);
-        if (s.plan) setPlan(s.plan);
+        if (s.plan) {
+          const parsed = PlanSchema.safeParse(s.plan);
+          if (parsed.success) setPlan(parsed.data);
+        }
+        if (Array.isArray(s.history)) {
+          const parsed = PlanEventSchema.array().safeParse(s.history);
+          if (parsed.success) setHistory(parsed.data);
+        }
         if (s.readyToPlan) setReadyToPlan(true);
       }
     } catch {
@@ -45,11 +55,24 @@ export default function Home() {
   useEffect(() => {
     if (!hydrated) return; // don't overwrite storage with empty initial state
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, plan, readyToPlan }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, plan, readyToPlan, history }));
     } catch {
       /* storage full/blocked — non-fatal */
     }
-  }, [hydrated, messages, plan, readyToPlan]);
+  }, [hydrated, messages, plan, readyToPlan, history]);
+
+  /**
+   * Single funnel for plan changes so the de-risking timeline stays in sync.
+   * `meta` (when present) logs why the plan changed, snapshotting the confidence
+   * that results from the change.
+   */
+  function applyPlan(next: Plan, meta?: PlanChangeMeta) {
+    setPlan(next);
+    if (meta) {
+      const confidence = summarizeValidation(next).confidence;
+      setHistory((h) => appendEvent(h, makeEvent(meta.kind, confidence, meta.label, meta.assumptionId ?? null)));
+    }
+  }
 
   async function generatePlan() {
     setPlanning(true);
@@ -60,8 +83,11 @@ export default function Home() {
         body: JSON.stringify({ messages }),
       });
       const data = await res.json();
-      if (res.ok) setPlan(data.plan);
-      else console.error("Plan error:", data);
+      if (res.ok) {
+        setPlan(data.plan);
+        // A fresh plan starts a fresh trajectory.
+        setHistory([makeEvent("created", summarizeValidation(data.plan).confidence, "Plan generated")]);
+      } else console.error("Plan error:", data);
     } finally {
       setPlanning(false);
     }
@@ -77,11 +103,22 @@ export default function Home() {
         body: JSON.stringify({ plan, note }),
       });
       const data = await res.json();
-      if (res.ok) setPlan(data.plan);
-      else console.error("Replan error:", data);
+      if (res.ok) {
+        setPlan(data.plan);
+        setHistory((h) =>
+          appendEvent(h, makeEvent("replan", summarizeValidation(data.plan).confidence, "Re-planned from new evidence")),
+        );
+      } else console.error("Replan error:", data);
     } finally {
       setReplanning(false);
     }
+  }
+
+  function loadSampleIdea() {
+    setMessages(sampleMessages);
+    setReadyToPlan(true);
+    setPlan(null);
+    setHistory([]);
   }
 
   return (
@@ -106,13 +143,53 @@ export default function Home() {
             readyToPlan={readyToPlan}
             setReadyToPlan={setReadyToPlan}
             onGeneratePlan={generatePlan}
+            onLoadSample={loadSampleIdea}
             planning={planning}
           />
         </section>
         <section>
-          <PlanPanel plan={plan} onReplan={replan} replanning={replanning} />
+          <PlanPanel
+            plan={plan}
+            history={history}
+            onPlanChange={applyPlan}
+            onReplan={replan}
+            replanning={replanning}
+          />
         </section>
       </div>
     </main>
   );
 }
+
+const sampleMessages: ChatMessage[] = [
+  {
+    role: "user",
+    content:
+      "I want to build an app that helps college students turn vague startup ideas into validated weekend projects.",
+  },
+  {
+    role: "assistant",
+    content:
+      "The hidden assumption is that students want validation help more than they want motivation or coding help. What specific student would use this first, and what are they trying to finish by Sunday night?",
+  },
+  {
+    role: "user",
+    content:
+      "First-time student founders in hackathon clubs. By Sunday night they want a clear idea, a tiny prototype, and proof that at least a few real people care.",
+  },
+  {
+    role: "assistant",
+    content:
+      "Good. The riskiest part is whether they will actually do uncomfortable validation tasks. What would count as a win in the first week?",
+  },
+  {
+    role: "user",
+    content:
+      "Five students use it during a weekend, at least three interview potential users, and two say it changed what they built.",
+  },
+  {
+    role: "assistant",
+    content:
+      "READY_TO_PLAN\nZero2Hero should help first-time student founders convert vague ideas into weekend validation plans that force real user evidence before overbuilding.",
+  },
+];

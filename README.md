@@ -4,6 +4,8 @@ The AI companion that turns a vague idea into a realistic execution plan.
 
 Interview → de-risked idea brief → living execution plan. Built for the USAII Global AI Hackathon 2026.
 
+> **First time here?** Follow [docs/SETUP.md](docs/SETUP.md) for step-by-step setup. TL;DR below.
+
 ## Quick start (fully local — no API key)
 
 Zero2Hero runs on a local model via [Ollama](https://ollama.com/download) by default — private, free, no quota, no key.
@@ -83,14 +85,70 @@ app/
   api/plan/route.ts       transcript → structured Plan JSON (zod-validated)
 lib/
   llm.ts                provider-agnostic LLM layer (azure | gemini | ollama)
-  schema.ts             Plan / Assumption / Milestone types (the spine)
-  prompts.ts            interview + planner prompts (core IP — tune here)
+  schema.ts             Plan / Assumption / Evidence / PlanEvent types (the spine)
+  prompts.ts            interview + planner + challenge + evidence prompts (core IP)
+  research.ts           agentic research + Evidence Engine (findings → assumptions)
+  validation.ts         evidence-aware confidence scoring
+  history.ts            de-risking timeline (confidence trajectory)
+  nextMove.ts           the single highest-leverage next action
 components/
   InterviewPanel.tsx    chat
-  PlanPanel.tsx         living plan: brief, assumptions, milestones
+  PlanPanel.tsx         living plan: brief, assumptions, milestones, evidence
+  ConfidenceTimeline.tsx  sparkline + annotated change log
+  ChallengeModal.tsx    adversarial cofounder (red-team one assumption)
+  ResearchModal.tsx     agentic research + apply linked evidence
 ```
 
 Theming is CSS-variable driven (see [`app/globals.css`](app/globals.css)); dark by default, light-mode toggle is a one-line attribute flip later.
+
+## The de-risking loop (what makes it wow)
+
+Zero2Hero isn't a planner that hands you a list — it tries to *prove or kill* your idea with evidence, live, and reshapes the plan as it learns. Four connected pieces turn the separate tools into one evidence-driven system:
+
+- **Evidence Engine** — `🔎 Research` doesn't just write a brief. The agent maps each finding back onto your assumptions as **cited evidence** (supports / undermines), proposes a status change, and you apply it in one click. Hallucinated citations are dropped server-side ([`lib/research.ts`](lib/research.ts)).
+- **De-risking timeline** — every change snapshots confidence, drawn as a sparkline + "what changed & why" log. Watch the number move as the idea gets de-risked ([`components/ConfidenceTimeline.tsx`](components/ConfidenceTimeline.tsx)).
+- **Adversarial cofounder** — `⚔️ Challenge` red-teams your weakest assumption and argues it's wrong. Defend it, or **concede** → it marks the assumption failed and re-plans. A cofounder that pushes back, not a yes-man ([`components/ChallengeModal.tsx`](components/ChallengeModal.tsx)).
+- **Decisive next move** — a banner names the ONE highest-leverage action right now (validate the riskiest open assumption, then ship), with one-click **Draft it** ([`lib/nextMove.ts`](lib/nextMove.ts)).
+
+Confidence is **evidence-aware**: supporting/undermining citations nudge it (bounded) on top of assumption status ([`lib/validation.ts`](lib/validation.ts)). Everything runs offline on the local model + SearxNG.
+
+## Testing
+
+A full, deterministic test suite pressure-tests every feature. Default runs are
+**fully mocked and offline** — no Azure, Gemini, Google Calendar, SearxNG, or
+Ollama required ([`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs all
+of it on push/PR).
+
+```bash
+npm run test        # Vitest: unit + API-route + component (jsdom)
+npm run test:watch  # Vitest watch mode
+npm run test:e2e    # Playwright browser smoke (mocked API responses)
+npm run test:all    # build → unit/API/component → E2E
+```
+
+| Layer | Location | Covers |
+|-------|----------|--------|
+| **Unit** | [`test/unit`](test/unit) | schema/evidence/event defaults + legacy parsing, evidence-aware confidence scoring, history/timeline helpers, next-move derivation, provider selection / `apiHeaders`, rate limiter, prompt builders, research + Evidence Engine (local vs cloud), Google Calendar helpers |
+| **API** | [`test/api`](test/api) | every route — plan/replan 422 on bad JSON, streaming NDJSON + marker stripping + error events, research backends + assumption pass-through, challenge (adversarial), health, key verification, calendar auth/callback/sync |
+| **Component** | [`test/component`](test/component) | interview seed + stream, setup-banner states, provider toggle, assumption tracker, confidence dashboard + timeline, evidence apply, challenge concede, next-move draft, research/stream modals, pitch one-pager |
+| **E2E** | [`test/e2e`](test/e2e) | full WOW arc — load sample → generate → next move → challenge → concede → re-plan → research evidence → timeline → persist → pitch |
+
+The first Playwright run downloads a browser (`npx playwright install chromium`).
+If your machine has a root-owned `~/Library/Caches/ms-playwright` from an old
+`sudo` install, install into a writable path instead:
+`PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/pw-browsers" npx playwright install chromium`
+(and prefix `npm run test:e2e` with the same env var).
+
+### Optional: real local-LLM smoke
+
+A real round-trip against local Ollama, kept out of default CI so it stays fast:
+
+```bash
+npm run llm:pull                  # ollama pull qwen2.5:7b  (~4.7 GB, the app default)
+RUN_LOCAL_LLM=1 npm run llm:smoke # asserts a non-empty /api/chat response
+```
+
+Without `RUN_LOCAL_LLM=1` the smoke is skipped, so it never blocks a normal run.
 
 ## Deploy to Vercel
 
@@ -163,10 +221,16 @@ Core loop (interview → plan → draft → re-plan) is done. These deepen the "
 
 **Tier 2 — high impact / medium effort**
 - [x] **Voice input** for the interview (Web Speech API — free, browser-native). *Live-demo dazzle.*
-- [ ] **Assumption test tracker → auto re-plan** — log each cheap test's result; feed it straight into `/api/replan`. *Closes the de-risking loop visibly.*
-- [x] **Agentic research** — one-click research agent: plans sub-questions → runs a grounded Google-Search call per question (live progress) → synthesizes a brief with all cited sources. Gemini-only (grounding).
+- [x] **Assumption test tracker → auto re-plan** — log each cheap test's result; feed it straight into `/api/replan`. *Closes the de-risking loop visibly.*
+- [x] **Agentic research** — one-click research agent: plans sub-questions → runs a grounded search per question (live progress) → synthesizes a brief with all cited sources (local SearxNG or Gemini grounding).
 
 **Tier 3 — stretch**
 - [ ] **Shareable plan link** (tiny KV store → URL for mentors/teammates)
 - [x] **Pre-mortem generator** — "what could kill this in 30 days" (failure modes + early signs + prevention)
-- [ ] **Confidence meter** — model rates plan confidence + biggest unknowns
+- [x] **Confidence meter** — evidence-aware confidence + biggest unknowns + next cheapest test
+
+**Evidence-driven loop (the headline wow)**
+- [x] **Evidence Engine** — research findings auto-link to assumptions as cited evidence + move confidence
+- [x] **De-risking timeline** — confidence trajectory sparkline + annotated change log
+- [x] **Adversarial cofounder** — interactive red-team of the weakest assumption → concede → re-plan
+- [x] **Decisive next move** — the single highest-leverage action, one-click to draft

@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
   const llmProvider = req.headers.get("x-llm-provider") || undefined;
 
   let brief;
+  let assumptions: { id: string; claim: string; risk: string }[] = [];
   try {
     const body = await req.json();
     const parsed = IdeaBriefSchema.safeParse(body.brief);
@@ -42,6 +43,17 @@ export async function POST(req: NextRequest) {
       });
     }
     brief = parsed.data;
+    // Optional: the plan's assumptions, so research can link evidence back.
+    if (Array.isArray(body.assumptions)) {
+      assumptions = body.assumptions
+        .filter((a: unknown): a is Record<string, unknown> => !!a && typeof a === "object")
+        .map((a: Record<string, unknown>) => ({
+          id: String(a.id ?? ""),
+          claim: String(a.claim ?? ""),
+          risk: String(a.risk ?? "med"),
+        }))
+        .filter((a: { id: string }) => a.id);
+    }
   } catch {
     return new Response(JSON.stringify({ error: "valid brief required" }), {
       status: 400,
@@ -59,6 +71,7 @@ export async function POST(req: NextRequest) {
           geminiKey: apiKey,
           searxUrl,
           provider: llmProvider,
+          assumptions,
         })) {
           send(event);
         }

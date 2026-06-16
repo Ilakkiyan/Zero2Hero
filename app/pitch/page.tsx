@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PlanSchema, type Plan, type RiskLevel } from "@/lib/schema";
+import {
+  PlanSchema,
+  PlanEventSchema,
+  type AssumptionStatus,
+  type Plan,
+  type PlanEvent,
+  type RiskLevel,
+} from "@/lib/schema";
+import { summarizeValidation } from "@/lib/validation";
+import ConfidenceTimeline from "@/components/ConfidenceTimeline";
 
 /**
  * Print-ready one-pager. Reads the persisted plan from localStorage (same
@@ -17,16 +26,28 @@ const riskChip: Record<RiskLevel, string> = {
   low: "text-risk-low border-risk-low",
 };
 
+const statusLabel: Record<AssumptionStatus, string> = {
+  untested: "Untested",
+  running: "Running",
+  passed: "Passed",
+  failed: "Failed",
+  inconclusive: "Inconclusive",
+};
+
 export default function PitchPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [history, setHistory] = useState<PlanEvent[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem("z2h_state");
       if (raw) {
-        const parsed = PlanSchema.safeParse(JSON.parse(raw).plan);
+        const state = JSON.parse(raw);
+        const parsed = PlanSchema.safeParse(state.plan);
         if (parsed.success) setPlan(parsed.data);
+        const hist = PlanEventSchema.array().safeParse(state.history);
+        if (hist.success) setHistory(hist.data);
       }
     } catch {
       /* ignore */
@@ -58,7 +79,17 @@ export default function PitchPage() {
             </a>
           </p>
         ) : (
-          <article className="pitch-sheet space-y-8">
+          <PitchSheet plan={plan} history={history} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PitchSheet({ plan, history }: { plan: Plan; history: PlanEvent[] }) {
+  const summary = summarizeValidation(plan);
+  return (
+    <article className="pitch-sheet space-y-8">
             <header className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
                 Zero2Hero · Execution Plan
@@ -70,6 +101,26 @@ export default function PitchPage() {
               <Meta label="Target user" value={plan.brief.targetUser} />
               <Meta label="Definition of win" value={plan.brief.definitionOfWin} />
             </div>
+
+            <section className="grid grid-cols-3 gap-3 rounded-xl border border-border bg-surface p-4">
+              <Meta label="Confidence" value={`${summary.confidence}%`} compact />
+              <Meta
+                label="Validation progress"
+                value={`${summary.testedCount}/${summary.totalCount} assumptions tested`}
+                compact
+              />
+              <Meta
+                label="Open high risk"
+                value={String(summary.unresolvedHighRisk)}
+                compact
+              />
+              <div className="col-span-3">
+                <p className="text-[10px] uppercase tracking-wide text-muted">Next validation action</p>
+                <p className="mt-1 text-sm text-text">{summary.nextTest}</p>
+              </div>
+            </section>
+
+            {history.length > 1 && <ConfidenceTimeline history={history} />}
 
             <div className="rounded-xl border-2 border-accent bg-surface p-4">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
@@ -85,14 +136,22 @@ export default function PitchPage() {
               <ul className="space-y-2">
                 {plan.assumptions.map((a) => (
                   <li key={a.id} className="flex items-start gap-3">
-                    <span
-                      className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${riskChip[a.risk]}`}
-                    >
-                      {a.risk}
-                    </span>
+                    <div className="mt-0.5 flex shrink-0 flex-col gap-1">
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-center text-[10px] font-semibold uppercase ${riskChip[a.risk]}`}
+                      >
+                        {a.risk}
+                      </span>
+                      <span className="rounded-full border border-border px-2 py-0.5 text-center text-[10px] font-semibold uppercase text-muted">
+                        {statusLabel[a.status]}
+                      </span>
+                    </div>
                     <div>
                       <p className="text-sm text-text">{a.claim}</p>
                       <p className="text-xs text-muted">Test: {a.cheapTest}</p>
+                      {a.resultNote && (
+                        <p className="mt-1 text-xs text-text">Result: {a.resultNote}</p>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -123,15 +182,20 @@ export default function PitchPage() {
               Generated by Zero2Hero · {new Date().toLocaleDateString()}
             </footer>
           </article>
-        )}
-      </div>
-    </div>
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function Meta({
+  label,
+  value,
+  compact,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+}) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
+    <div className={compact ? "" : "rounded-xl border border-border bg-surface p-4"}>
       <p className="text-[10px] uppercase tracking-wide text-muted">{label}</p>
       <p className="mt-1 text-sm text-text">{value}</p>
     </div>

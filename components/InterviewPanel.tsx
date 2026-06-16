@@ -12,6 +12,7 @@ interface Props {
   readyToPlan: boolean;
   setReadyToPlan: (v: boolean) => void;
   onGeneratePlan: () => void;
+  onLoadSample: () => void;
   planning: boolean;
 }
 
@@ -21,6 +22,7 @@ export default function InterviewPanel({
   readyToPlan,
   setReadyToPlan,
   onGeneratePlan,
+  onLoadSample,
   planning,
 }: Props) {
   const [input, setInput] = useState("");
@@ -84,10 +86,19 @@ export default function InterviewPanel({
 
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
         {messages.length === 0 && (
-          <p className="text-sm leading-relaxed text-muted">
-            Describe your idea in a sentence — even a vague one. I&apos;ll ask the questions that
-            matter and surface the assumptions you haven&apos;t spotted yet.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm leading-relaxed text-muted">
+              Describe your idea in a sentence — even a vague one. I&apos;ll ask the questions that
+              matter and surface the assumptions you haven&apos;t spotted yet.
+            </p>
+            <button
+              type="button"
+              onClick={onLoadSample}
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              Load sample idea
+            </button>
+          </div>
         )}
 
         {messages.map((m, i) => (

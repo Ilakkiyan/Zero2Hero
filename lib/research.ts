@@ -1,6 +1,6 @@
-import type { IdeaBrief } from "@/lib/schema";
+import type { EvidenceStance, IdeaBrief } from "@/lib/schema";
 import { chatJSON, chatStream, fetchWithRetry } from "@/lib/llm";
-import { researchPlanMessage, researchSynthesisMessage } from "@/lib/prompts";
+import { evidenceMapMessage, researchPlanMessage, researchSynthesisMessage } from "@/lib/prompts";
 
 /**
  * Agentic web research. Planning and synthesis always run on the active LLM
@@ -18,12 +18,24 @@ export interface ResearchSource {
   uri: string;
 }
 
+export type SuggestedStatus = "passed" | "failed" | "inconclusive" | null;
+
+/** A finding mapped onto one assumption — the Evidence Engine's output unit. */
+export interface EvidenceLink {
+  assumptionId: string;
+  stance: EvidenceStance;
+  snippet: string;
+  source: ResearchSource;
+  suggestedStatus: SuggestedStatus;
+}
+
 export type ResearchEvent =
   | { type: "meta"; backend: "local" | "cloud" }
   | { type: "plan"; questions: string[] }
   | { type: "step"; index: number; question: string }
   | { type: "step_done"; index: number; sourceCount: number }
   | { type: "token"; value: string }
+  | { type: "evidence"; links: EvidenceLink[] }
   | { type: "sources"; value: ResearchSource[] };
 
 export interface ResearchOptions {
@@ -33,6 +45,8 @@ export interface ResearchOptions {
   searxUrl?: string;
   /** LLM provider for the plan/synthesis brain (azure | ollama | gemini). */
   provider?: string;
+  /** The plan's assumptions — when present, findings are linked back as evidence. */
+  assumptions?: { id: string; claim: string; risk: string }[];
 }
 
 // ── SearxNG (local search) ───────────────────────────────────────────
@@ -152,6 +166,52 @@ async function planQuestions(
   ];
 }
 
+// ── Evidence mapping (active LLM provider) ───────────────────────────
+const STANCES = new Set<EvidenceStance>(["supports", "undermines", "neutral"]);
+const STATUSES = new Set(["passed", "failed", "inconclusive"]);
+
+/**
+ * Ask the model to map findings onto the assumptions. Hardened against bad
+ * output: drops links for unknown assumption ids, invalid stances, or sources
+ * that aren't real http(s) URLs — so we never attach a hallucinated citation.
+ */
+async function mapEvidence(
+  brief: IdeaBrief,
+  assumptions: NonNullable<ResearchOptions["assumptions"]>,
+  findings: { question: string; text: string }[],
+  opts: ResearchOptions,
+): Promise<EvidenceLink[]> {
+  if (!assumptions.length) return [];
+  const ids = new Set(assumptions.map((a) => a.id));
+  try {
+    const data = await chatJSON<{ links?: unknown }>(
+      [{ role: "user", content: evidenceMapMessage(brief, assumptions, findings) }],
+      { apiKey: opts.geminiKey, provider: opts.provider },
+    );
+    const raw = Array.isArray(data.links) ? data.links : [];
+    const links: EvidenceLink[] = [];
+    for (const item of raw) {
+      if (!item || typeof item !== "object") continue;
+      const o = item as Record<string, unknown>;
+      const assumptionId = String(o.assumptionId ?? "");
+      const stance = String(o.stance ?? "neutral") as EvidenceStance;
+      const uri = String(o.sourceUri ?? "");
+      if (!ids.has(assumptionId) || !STANCES.has(stance) || !/^https?:\/\//.test(uri)) continue;
+      const suggested = String(o.suggestedStatus ?? "");
+      links.push({
+        assumptionId,
+        stance,
+        snippet: String(o.snippet ?? "").slice(0, 400),
+        source: { title: String(o.sourceTitle || uri), uri },
+        suggestedStatus: STATUSES.has(suggested) ? (suggested as SuggestedStatus) : null,
+      });
+    }
+    return links;
+  } catch {
+    return [];
+  }
+}
+
 export async function* runAgenticResearch(
   brief: IdeaBrief,
   opts: ResearchOptions = {},
@@ -192,6 +252,13 @@ export async function* runAgenticResearch(
     { apiKey: opts.geminiKey, provider: opts.provider },
   )) {
     yield { type: "token", value: chunk };
+  }
+
+  // 4. EVIDENCE — link findings back onto the assumptions so research de-risks
+  // the actual plan instead of producing a throwaway brief.
+  if (opts.assumptions?.length) {
+    const links = await mapEvidence(brief, opts.assumptions, findings, opts);
+    if (links.length) yield { type: "evidence", links };
   }
 
   yield { type: "sources", value: [...allSources.values()] };
