@@ -15,11 +15,14 @@ Zero2Hero runs on a local model via [Ollama](https://ollama.com/download) by def
 #    macOS:  https://ollama.com/download/mac
 #    Windows https://ollama.com/download/windows
 #    Linux:  curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:7b        # 2. pull the model
+ollama pull qwen3:30b-a3b        # 2. pull the model
 
 npm install
 cp .env.example .env.local    # defaults to LLM_PROVIDER=ollama
 npm run dev                   # 3. http://localhost:3000
+
+# Optional — local web research (needs Docker). Start it alongside the app:
+docker compose -f docker-compose.searxng.yml up -d   # 🔎 Research → http://localhost:8080
 ```
 
 The home page shows a setup guide (with download links) and a live status check until the local model is ready.
@@ -50,7 +53,7 @@ A **Cloud / Local toggle** in the header switches the model backend per request 
 | Toggle | Provider | Notes |
 |--------|----------|-------|
 | **☁ Cloud** | Azure OpenAI | Quality + deployable; runs on the $100 Azure-for-Students credit. Set `AZURE_OPENAI_*` in `.env.local`. |
-| **💻 Local** | Ollama (`qwen2.5:7b`) | Free, private, offline — the robust fallback. |
+| **💻 Local** | Ollama (`qwen3:30b-a3b`) | Free, private, offline — the robust fallback. |
 
 The toggle sends an `x-llm-provider` header that [`lib/llm.ts`](lib/llm.ts) honors per request (server `LLM_PROVIDER` is the default when no header). Gemini remains available as an `LLM_PROVIDER`/research-search option.
 
@@ -65,6 +68,8 @@ npm run desktop:dev     # dev: launches a desktop window against `next dev`
 # or
 npm run desktop         # prod: next build, then open the app window
 ```
+
+On launch the desktop app also **auto-starts the local SearxNG container** (`docker compose … up -d`) so 🔎 Research works out of the box — best-effort, and silently skipped if Docker isn't installed/running. Set `Z2H_SEARXNG=0` to disable it (e.g. if you start SearxNG yourself).
 
 Build installers (`.exe` / `.dmg` / `AppImage`) with:
 
@@ -144,7 +149,7 @@ If your machine has a root-owned `~/Library/Caches/ms-playwright` from an old
 A real round-trip against local Ollama, kept out of default CI so it stays fast:
 
 ```bash
-npm run llm:pull                  # ollama pull qwen2.5:7b  (~4.7 GB, the app default)
+npm run llm:pull                  # ollama pull qwen3:30b-a3b  (~18 GB, the app default)
 RUN_LOCAL_LLM=1 npm run llm:smoke # asserts a non-empty /api/chat response
 ```
 

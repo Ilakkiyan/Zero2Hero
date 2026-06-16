@@ -1,3 +1,4 @@
+import type { ChatMessage } from "@/lib/llm";
 import type { IdeaBrief, Milestone, Plan } from "@/lib/schema";
 
 /**
@@ -5,6 +6,21 @@ import type { IdeaBrief, Milestone, Plan } from "@/lib/schema";
  * interview must ask the sharp, de-risking question a founder hadn't thought
  * of, and the plan must surface non-obvious assumptions. Tune these hard.
  */
+
+/**
+ * Workspace-wide context the user set once (who they are, constraints). Returned
+ * as a system message to prepend, or [] when empty — so every project shares the
+ * same foundation without it being re-typed per idea.
+ */
+export function sharedContextMessages(sharedContext: unknown): ChatMessage[] {
+  if (typeof sharedContext !== "string" || !sharedContext.trim()) return [];
+  return [
+    {
+      role: "system",
+      content: `Shared context the user set for ALL their projects — treat as background that applies to this idea unless it clearly contradicts the conversation:\n${sharedContext.trim()}`,
+    },
+  ];
+}
 
 export const INTERVIEW_SYSTEM = `You are Zero2Hero, an AI cofounder that turns a vague idea into a realistic execution plan.
 

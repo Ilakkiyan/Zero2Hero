@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { chatStream, type ChatMessage } from "@/lib/llm";
-import { INTERVIEW_SYSTEM } from "@/lib/prompts";
+import { INTERVIEW_SYSTEM, sharedContextMessages } from "@/lib/prompts";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
@@ -27,12 +27,15 @@ export async function POST(req: NextRequest) {
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
   const llmProvider = req.headers.get("x-llm-provider") || undefined;
+  const llmModel = req.headers.get("x-llm-model") || undefined;
 
   let messages: ChatMessage[];
+  let contextMessages: ChatMessage[] = [];
   try {
     const body = await req.json();
     messages = body.messages;
     if (!Array.isArray(messages)) throw new Error("messages[] required");
+    contextMessages = sharedContextMessages(body.sharedContext);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Bad request";
     return new Response(JSON.stringify({ error: message }), { status: 400 });
@@ -47,8 +50,8 @@ export async function POST(req: NextRequest) {
 
       try {
         for await (const chunk of chatStream(
-          [{ role: "system", content: INTERVIEW_SYSTEM }, ...messages],
-          { apiKey, provider: llmProvider },
+          [{ role: "system", content: INTERVIEW_SYSTEM }, ...contextMessages, ...messages],
+          { apiKey, provider: llmProvider, model: llmModel },
         )) {
           buf += chunk;
 

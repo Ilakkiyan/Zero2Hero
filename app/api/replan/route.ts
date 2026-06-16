@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatJSON } from "@/lib/llm";
-import { REPLAN_SYSTEM, replanUserMessage } from "@/lib/prompts";
+import { REPLAN_SYSTEM, replanUserMessage, sharedContextMessages } from "@/lib/prompts";
 import { PlanSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
 
@@ -22,9 +22,11 @@ export async function POST(req: NextRequest) {
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
   const llmProvider = req.headers.get("x-llm-provider") || undefined;
+  const llmModel = req.headers.get("x-llm-model") || undefined;
 
   try {
-    const { plan, note } = (await req.json()) as { plan: unknown; note: unknown };
+    const reqBody = (await req.json()) as { plan: unknown; note: unknown; sharedContext?: unknown };
+    const { plan, note } = reqBody;
 
     const currentPlan = PlanSchema.safeParse(plan);
     if (!currentPlan.success) {
@@ -37,9 +39,10 @@ export async function POST(req: NextRequest) {
     const raw = await chatJSON(
       [
         { role: "system", content: REPLAN_SYSTEM },
+        ...sharedContextMessages(reqBody.sharedContext),
         { role: "user", content: replanUserMessage(currentPlan.data, note) },
       ],
-      { apiKey, provider: llmProvider },
+      { apiKey, provider: llmProvider, model: llmModel },
     );
 
     const revised = PlanSchema.safeParse(raw);

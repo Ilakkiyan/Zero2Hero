@@ -14,6 +14,7 @@ import type {
 import StreamModal from "@/components/StreamModal";
 import ResearchModal from "@/components/ResearchModal";
 import ChallengeModal from "@/components/ChallengeModal";
+import CalendarSetupModal from "@/components/CalendarSetupModal";
 import ConfidenceTimeline from "@/components/ConfidenceTimeline";
 import { summarizeValidation } from "@/lib/validation";
 import { nextMove } from "@/lib/nextMove";
@@ -75,6 +76,7 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
   const [showPremortem, setShowPremortem] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
   const [showChallenge, setShowChallenge] = useState(false);
+  const [showCalSetup, setShowCalSetup] = useState(false);
   const [note, setNote] = useState("");
 
   function submitReplan() {
@@ -227,7 +229,7 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
           </p>
         </div>
       ) : (
-        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
           {/* Calendar sync */}
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -236,6 +238,13 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
               className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80 disabled:opacity-50"
             >
               {syncing ? "Syncing…" : "📅 Add to Google Calendar"}
+            </button>
+            <button
+              onClick={() => setShowCalSetup(true)}
+              className="rounded-lg px-2 py-1.5 text-xs font-medium text-muted transition-colors hover:text-text"
+              title="How to connect Google Calendar"
+            >
+              Setup guide
             </button>
             <a
               href="/pitch"
@@ -495,6 +504,8 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
           onClose={() => setShowChallenge(false)}
         />
       )}
+
+      {showCalSetup && <CalendarSetupModal onClose={() => setShowCalSetup(false)} />}
     </div>
   );
 }

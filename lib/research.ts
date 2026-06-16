@@ -45,6 +45,8 @@ export interface ResearchOptions {
   searxUrl?: string;
   /** LLM provider for the plan/synthesis brain (azure | ollama | gemini). */
   provider?: string;
+  /** Model/deployment override for the plan/synthesis brain (from Settings). */
+  model?: string;
   /** The plan's assumptions — when present, findings are linked back as evidence. */
   assumptions?: { id: string; claim: string; risk: string }[];
 }
@@ -145,11 +147,12 @@ async function planQuestions(
   brief: IdeaBrief,
   geminiKey?: string,
   provider?: string,
+  model?: string,
 ): Promise<string[]> {
   try {
     const data = await chatJSON<{ questions?: unknown }>(
       [{ role: "user", content: researchPlanMessage(brief) }],
-      { apiKey: geminiKey, provider },
+      { apiKey: geminiKey, provider, model },
     );
     const qs = Array.isArray(data.questions)
       ? data.questions.filter((q): q is string => typeof q === "string" && q.trim().length > 0)
@@ -186,7 +189,7 @@ async function mapEvidence(
   try {
     const data = await chatJSON<{ links?: unknown }>(
       [{ role: "user", content: evidenceMapMessage(brief, assumptions, findings) }],
-      { apiKey: opts.geminiKey, provider: opts.provider },
+      { apiKey: opts.geminiKey, provider: opts.provider, model: opts.model },
     );
     const raw = Array.isArray(data.links) ? data.links : [];
     const links: EvidenceLink[] = [];
@@ -221,7 +224,7 @@ export async function* runAgenticResearch(
   yield { type: "meta", backend: useCloud ? "cloud" : "local" };
 
   // 1. PLAN (local brain)
-  const questions = await planQuestions(brief, opts.geminiKey, opts.provider);
+  const questions = await planQuestions(brief, opts.geminiKey, opts.provider, opts.model);
   yield { type: "plan", questions };
 
   // 2. SEARCH (pluggable backend)
@@ -249,7 +252,7 @@ export async function* runAgenticResearch(
   // 3. SYNTHESIZE (local brain)
   for await (const chunk of chatStream(
     [{ role: "user", content: researchSynthesisMessage(brief, findings) }],
-    { apiKey: opts.geminiKey, provider: opts.provider },
+    { apiKey: opts.geminiKey, provider: opts.provider, model: opts.model },
   )) {
     yield { type: "token", value: chunk };
   }

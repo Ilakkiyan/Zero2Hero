@@ -24,6 +24,8 @@ export interface ChatOptions {
   apiKey?: string;
   /** Per-request provider override ("azure" | "ollama" | "gemini"). */
   provider?: string;
+  /** Per-request model/deployment override (from Settings). Falls back to env. */
+  model?: string;
 }
 
 /** User-provided key wins; otherwise the env fallback. Friendly error if neither. */
@@ -52,20 +54,32 @@ interface StreamChunk {
 }
 
 // ── Azure OpenAI ─────────────────────────────────────────────────────
+/**
+ * Resolve the Azure OpenAI v1 (OpenAI-compatible) endpoint + model. Newer Azure
+ * AI Foundry resources only serve `/openai/v1/...` (model in the body), not the
+ * classic `/openai/deployments/{name}/...?api-version=` path. We accept an
+ * endpoint that's a bare resource host OR one that already includes `/openai`
+ * or `/openai/v1`, so either form in .env.local works.
+ */
+function azureV1(opts: ChatOptions): { url: string; apiKey: string; model: string } {
+  const root = requireEnv("AZURE_OPENAI_ENDPOINT")
+    .replace(/\/+$/, "")
+    .replace(/\/openai(\/v1)?$/, "");
+  const apiKey = requireEnv("AZURE_OPENAI_API_KEY");
+  const model = opts.model?.trim() || requireEnv("AZURE_OPENAI_DEPLOYMENT");
+  return { url: `${root}/openai/v1/chat/completions`, apiKey, model };
+}
+
 class AzureOpenAIProvider implements LLMProvider {
   readonly name = "azure";
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
-    const endpoint = requireEnv("AZURE_OPENAI_ENDPOINT").replace(/\/$/, "");
-    const apiKey = requireEnv("AZURE_OPENAI_API_KEY");
-    const deployment = requireEnv("AZURE_OPENAI_DEPLOYMENT");
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-06-01";
-
-    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+    const { url, apiKey, model } = azureV1(opts);
     const res = await fetchWithRetry(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "api-key": apiKey },
       body: JSON.stringify({
+        model,
         messages,
         temperature: opts.temperature ?? 0.7,
         ...(opts.json ? { response_format: { type: "json_object" } } : {}),
@@ -77,16 +91,11 @@ class AzureOpenAIProvider implements LLMProvider {
   }
 
   async *stream(messages: ChatMessage[], opts: ChatOptions = {}): AsyncGenerator<string> {
-    const endpoint = requireEnv("AZURE_OPENAI_ENDPOINT").replace(/\/$/, "");
-    const apiKey = requireEnv("AZURE_OPENAI_API_KEY");
-    const deployment = requireEnv("AZURE_OPENAI_DEPLOYMENT");
-    const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-06-01";
-
-    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+    const { url, apiKey, model } = azureV1(opts);
     const res = await fetchWithRetry(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "api-key": apiKey },
-      body: JSON.stringify({ messages, temperature: opts.temperature ?? 0.7, stream: true }),
+      body: JSON.stringify({ model, messages, temperature: opts.temperature ?? 0.7, stream: true }),
     });
     if (!res.ok || !res.body) throw new Error(`Azure OpenAI ${res.status}: ${await res.text()}`);
     yield* sse(res, (j) => j.choices?.[0]?.delta?.content ?? "");
@@ -99,7 +108,7 @@ class GeminiProvider implements LLMProvider {
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
     const apiKey = resolveGeminiKey(opts.apiKey);
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const model = opts.model?.trim() || process.env.GEMINI_MODEL || "gemini-2.0-flash";
 
     // Gemini splits the system prompt out and uses "user"/"model" roles.
     const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
@@ -130,7 +139,7 @@ class GeminiProvider implements LLMProvider {
 
   async *stream(messages: ChatMessage[], opts: ChatOptions = {}): AsyncGenerator<string> {
     const apiKey = resolveGeminiKey(opts.apiKey);
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const model = opts.model?.trim() || process.env.GEMINI_MODEL || "gemini-2.0-flash";
 
     const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
     const contents = messages
@@ -164,7 +173,7 @@ class OllamaProvider implements LLMProvider {
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
     const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    const model = process.env.OLLAMA_MODEL || "qwen2.5:7b";
+    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen3:30b-a3b";
 
     const res = await fetchWithRetry(`${base}/api/chat`, {
       method: "POST",
@@ -184,7 +193,7 @@ class OllamaProvider implements LLMProvider {
 
   async *stream(messages: ChatMessage[], opts: ChatOptions = {}): AsyncGenerator<string> {
     const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    const model = process.env.OLLAMA_MODEL || "qwen2.5:7b";
+    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen3:30b-a3b";
 
     const res = await fetchWithRetry(`${base}/api/chat`, {
       method: "POST",

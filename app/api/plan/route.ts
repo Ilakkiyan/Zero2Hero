@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatJSON, type ChatMessage } from "@/lib/llm";
-import { PLAN_SYSTEM } from "@/lib/prompts";
+import { PLAN_SYSTEM, sharedContextMessages } from "@/lib/prompts";
 import { PlanSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
 
@@ -21,9 +21,11 @@ export async function POST(req: NextRequest) {
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
   const llmProvider = req.headers.get("x-llm-provider") || undefined;
+  const llmModel = req.headers.get("x-llm-model") || undefined;
 
   try {
-    const { messages } = (await req.json()) as { messages: ChatMessage[] };
+    const body = (await req.json()) as { messages: ChatMessage[]; sharedContext?: unknown };
+    const { messages } = body;
     if (!Array.isArray(messages)) {
       return NextResponse.json({ error: "messages[] required" }, { status: 400 });
     }
@@ -31,10 +33,11 @@ export async function POST(req: NextRequest) {
     const raw = await chatJSON(
       [
         { role: "system", content: PLAN_SYSTEM },
+        ...sharedContextMessages(body.sharedContext),
         ...messages,
         { role: "user", content: "Produce the execution plan JSON now." },
       ],
-      { apiKey, provider: llmProvider },
+      { apiKey, provider: llmProvider, model: llmModel },
     );
 
     const parsed = PlanSchema.safeParse(raw);

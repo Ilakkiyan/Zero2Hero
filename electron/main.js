@@ -4,6 +4,7 @@
 const { app, BrowserWindow, shell } = require("electron");
 const path = require("path");
 const http = require("http");
+const fs = require("fs");
 const { spawn } = require("child_process");
 
 const isDev = process.env.ELECTRON_DEV === "1";
@@ -11,8 +12,44 @@ const PORT = Number(process.env.PORT) || 3000;
 const APP_URL = `http://localhost:${PORT}`;
 const appRoot = path.join(__dirname, "..");
 
+// Auto-start the local SearxNG container unless explicitly disabled (Z2H_SEARXNG=0).
+const AUTO_SEARXNG = process.env.Z2H_SEARXNG !== "0";
+
 let serverProcess = null;
 let mainWindow = null;
+
+/**
+ * Best-effort: bring up the local SearxNG search container so the 🔎 Research
+ * feature works out of the box. Detached (`up -d`), non-blocking, and silent if
+ * Docker isn't installed/running — research just falls back to its "search
+ * backend down" message, exactly as before. The compose file lives at the repo
+ * root in dev and under resources/ in the packaged app; we mount `./searxng`
+ * relative to it, so we run docker from the compose file's own directory.
+ */
+function startSearxng() {
+  if (!AUTO_SEARXNG) return;
+  const composeFile = [
+    path.join(appRoot, "docker-compose.searxng.yml"),
+    path.join(process.resourcesPath || "", "docker-compose.searxng.yml"),
+  ].find((p) => p && fs.existsSync(p));
+  if (!composeFile) {
+    console.warn("SearxNG: compose file not found; skipping auto-start.");
+    return;
+  }
+
+  const proc = spawn("docker", ["compose", "-f", composeFile, "up", "-d"], {
+    cwd: path.dirname(composeFile),
+    stdio: "ignore",
+    detached: false,
+  });
+  proc.on("error", (err) =>
+    console.warn(`SearxNG: could not start (Docker missing?) — ${err.message}`),
+  );
+  proc.on("exit", (code) => {
+    if (code === 0) console.log("SearxNG: container is up on http://localhost:8080");
+    else console.warn(`SearxNG: docker compose exited with code ${code}.`);
+  });
+}
 
 /** In production, start `next start` using Electron's bundled Node. */
 function startServer() {
@@ -70,6 +107,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  startSearxng(); // fire-and-forget; research works the moment it's up
   startServer();
   try {
     await waitForServer();

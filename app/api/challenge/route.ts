@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
   const llmProvider = req.headers.get("x-llm-provider") || undefined;
+  const llmModel = req.headers.get("x-llm-model") || undefined;
 
   let assumption: { claim: string; risk: string; cheapTest: string };
   let messages: ChatMessage[];
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
             { role: "user", content: challengeOpenMessage(assumption) },
             ...messages,
           ],
-          { apiKey, provider: llmProvider },
+          { apiKey, provider: llmProvider, model: llmModel },
         )) {
           send({ type: "token", value: chunk });
         }

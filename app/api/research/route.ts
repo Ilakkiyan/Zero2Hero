@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
   const llmProvider = req.headers.get("x-llm-provider") || undefined;
+  const llmModel = req.headers.get("x-llm-model") || undefined;
 
   let brief;
   let assumptions: { id: string; claim: string; risk: string }[] = [];
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
           geminiKey: apiKey,
           searxUrl,
           provider: llmProvider,
+          model: llmModel,
           assumptions,
         })) {
           send(event);

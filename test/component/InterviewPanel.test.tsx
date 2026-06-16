@@ -20,6 +20,10 @@ describe("InterviewPanel", () => {
         onGeneratePlan={() => {}}
         onLoadSample={onLoadSample}
         planning={false}
+        hasPlan={false}
+        onRefine={async () => true}
+        refining={false}
+        sharedContext=""
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /load sample idea/i }));
@@ -41,6 +45,10 @@ describe("InterviewPanel", () => {
         onGeneratePlan={onGeneratePlan}
         onLoadSample={() => {}}
         planning={false}
+        hasPlan={false}
+        onRefine={async () => true}
+        refining={false}
+        sharedContext=""
       />,
     );
     expect(screen.getByText("my idea")).toBeInTheDocument();
@@ -73,6 +81,10 @@ describe("InterviewPanel", () => {
           onGeneratePlan={() => {}}
           onLoadSample={() => {}}
           planning={false}
+          hasPlan={false}
+          onRefine={async () => true}
+          refining={false}
+          sharedContext=""
         />
       );
     }
@@ -86,6 +98,44 @@ describe("InterviewPanel", () => {
       expect(screen.getByRole("button", { name: /generate execution plan/i })).toBeInTheDocument(),
     );
     expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe("/api/interview");
+  });
+
+  it("refines the existing plan from chat instead of interviewing once a plan exists", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const onRefine = vi.fn().mockResolvedValue(true);
+
+    function Harness() {
+      const [messages, setMessages] = useState<ChatMessage[]>([
+        { role: "user", content: "my idea" },
+        { role: "assistant", content: "a plan was made" },
+      ]);
+      return (
+        <InterviewPanel
+          messages={messages}
+          setMessages={setMessages}
+          readyToPlan
+          setReadyToPlan={() => {}}
+          onGeneratePlan={() => {}}
+          onLoadSample={() => {}}
+          planning={false}
+          hasPlan
+          onRefine={onRefine}
+          refining={false}
+          sharedContext=""
+        />
+      );
+    }
+
+    render(<Harness />);
+    // The Generate CTA is gone once a plan exists; the input refines instead.
+    expect(screen.queryByRole("button", { name: /generate execution plan/i })).not.toBeInTheDocument();
+    await userEvent.type(screen.getByPlaceholderText(/ask for a change/i), "make milestone 1 shorter");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(onRefine).toHaveBeenCalledWith("make milestone 1 shorter");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText(/updated the execution plan/i)).toBeInTheDocument();
   });
 
   it("surfaces a stream error to the user", async () => {
@@ -105,6 +155,10 @@ describe("InterviewPanel", () => {
           onGeneratePlan={() => {}}
           onLoadSample={() => {}}
           planning={false}
+          hasPlan={false}
+          onRefine={async () => true}
+          refining={false}
+          sharedContext=""
         />
       );
     }

@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = req.headers.get("x-gemini-key") || undefined;
   const llmProvider = req.headers.get("x-llm-provider") || undefined;
+  const llmModel = req.headers.get("x-llm-model") || undefined;
 
   let body: z.infer<typeof BodySchema>;
   try {
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
             { role: "system", content: DRAFT_SYSTEM },
             { role: "user", content: draftUserMessage(body.brief, body.milestone) },
           ],
-          { apiKey, provider: llmProvider },
+          { apiKey, provider: llmProvider, model: llmModel },
         )) {
           send({ type: "token", value: chunk });
         }

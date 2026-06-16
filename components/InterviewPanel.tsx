@@ -14,6 +14,13 @@ interface Props {
   onGeneratePlan: () => void;
   onLoadSample: () => void;
   planning: boolean;
+  /** True once a plan exists — chat then refines the plan instead of interviewing. */
+  hasPlan: boolean;
+  /** Revise the existing plan from a chat message; resolves true on success. */
+  onRefine: (note: string) => Promise<boolean>;
+  refining: boolean;
+  /** Workspace-wide context injected into the interview for every project. */
+  sharedContext: string;
 }
 
 export default function InterviewPanel({
@@ -24,6 +31,10 @@ export default function InterviewPanel({
   onGeneratePlan,
   onLoadSample,
   planning,
+  hasPlan,
+  onRefine,
+  refining,
+  sharedContext,
 }: Props) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -47,19 +58,35 @@ export default function InterviewPanel({
 
   async function send() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || refining) return;
     setError(null);
 
     const base: ChatMessage[] = [...messages, { role: "user", content: text }];
     setMessages(base);
     setInput("");
+
+    // Once a plan exists, chat refines that plan rather than re-interviewing.
+    if (hasPlan) {
+      const ok = await onRefine(text);
+      setMessages([
+        ...base,
+        {
+          role: "assistant",
+          content: ok
+            ? "Done — I updated the execution plan from that. Take a look on the right →"
+            : "I couldn't revise the plan from that. Try rephrasing the change you want.",
+        },
+      ]);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/interview", {
         method: "POST",
         headers: apiHeaders(),
-        body: JSON.stringify({ messages: base }),
+        body: JSON.stringify({ messages: base, sharedContext }),
       });
 
       // Stream tokens and grow the assistant bubble live.
@@ -84,7 +111,7 @@ export default function InterviewPanel({
         <span className="ml-auto text-xs text-muted">de-risk the idea</span>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-sm leading-relaxed text-muted">
@@ -116,14 +143,14 @@ export default function InterviewPanel({
           </div>
         ))}
 
-        {loading &&
+        {(loading || refining) &&
           (messages.length === 0 || messages[messages.length - 1].role === "user") && (
-            <p className="text-sm text-muted">Thinking…</p>
+            <p className="text-sm text-muted">{refining ? "Revising the plan…" : "Thinking…"}</p>
           )}
         {error && <p className="text-sm text-risk-high">{error}</p>}
       </div>
 
-      {readyToPlan && (
+      {readyToPlan && !hasPlan && (
         <div className="px-5 pb-2">
           <button
             onClick={onGeneratePlan}
@@ -147,7 +174,13 @@ export default function InterviewPanel({
               }
             }}
             rows={1}
-            placeholder={listening ? "Listening…" : "Type your idea or answer…"}
+            placeholder={
+              listening
+                ? "Listening…"
+                : hasPlan
+                  ? "Ask for a change to the plan…"
+                  : "Type your idea or answer…"
+            }
             className="max-h-32 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-text outline-none placeholder:text-muted"
           />
           {micSupported && (
@@ -166,7 +199,7 @@ export default function InterviewPanel({
           )}
           <button
             onClick={send}
-            disabled={loading || !input.trim()}
+            disabled={loading || refining || !input.trim()}
             className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             Send

@@ -53,16 +53,43 @@ export function setProviderPref(v: ProviderPref): void {
 }
 
 /** Map the UI preference to the server provider name. */
-function providerName(): string {
-  return getProviderPref() === "cloud" ? "azure" : "ollama";
+export function providerName(pref: ProviderPref = getProviderPref()): string {
+  return pref === "cloud" ? "azure" : "ollama";
 }
 
-/** JSON headers plus the chosen provider and the user's key when set. */
+// ── Model override (Settings) ────────────────────────────────────────
+// Models are provider-specific, so the override is keyed by server provider
+// name. Empty means "use the server's env default" for that provider.
+const MODEL_STORAGE_PREFIX = "z2h_model_";
+
+export function getModelOverride(provider: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(MODEL_STORAGE_PREFIX + provider) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setModelOverride(provider: string, model: string): void {
+  try {
+    const v = model.trim();
+    if (v) localStorage.setItem(MODEL_STORAGE_PREFIX + provider, v);
+    else localStorage.removeItem(MODEL_STORAGE_PREFIX + provider);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** JSON headers plus the chosen provider, model override, and the user's key when set. */
 export function apiHeaders(): HeadersInit {
   const key = getGeminiKey();
+  const provider = providerName();
+  const model = getModelOverride(provider);
   return {
     "Content-Type": "application/json",
-    "x-llm-provider": providerName(),
+    "x-llm-provider": provider,
     ...(key ? { "x-gemini-key": key } : {}),
+    ...(model ? { "x-llm-model": model } : {}),
   };
 }

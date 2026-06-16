@@ -16,8 +16,11 @@ free** (no API key, no cloud) — everything else is optional.
 # 2. From the repo root:
 npm install
 cp .env.example .env.local        # defaults to LLM_PROVIDER=ollama (local)
-npm run llm:pull                  # ollama pull qwen2.5:7b  (~4.7 GB, one time)
+npm run llm:pull                  # ollama pull qwen3:30b-a3b  (~18 GB, one time)
 npm run dev                       # → http://localhost:3000
+
+# Optional — local web research (needs Docker). Start it alongside the app:
+docker compose -f docker-compose.searxng.yml up -d   # 🔎 Research → http://localhost:8080
 ```
 
 Open **http://localhost:3000**. The home page shows a live setup banner that
@@ -59,12 +62,12 @@ cp .env.example .env.local
 ```
 
 The defaults run everything locally (`LLM_PROVIDER=ollama`, model
-`qwen2.5:7b`). `.env.local` is git-ignored — never commit real keys.
+`qwen3:30b-a3b`). `.env.local` is git-ignored — never commit real keys.
 
 ### 3. Pull the local model
 
 ```bash
-npm run llm:pull        # = ollama pull qwen2.5:7b
+npm run llm:pull        # = ollama pull qwen3:30b-a3b
 ```
 
 Make sure the Ollama app/daemon is running (it listens on
@@ -184,7 +187,7 @@ RUN_LOCAL_LLM=1 npm run llm:smoke
 | Symptom | Fix |
 |---------|-----|
 | Banner says "Ollama not detected" | Start the Ollama app; confirm `curl http://localhost:11434/api/tags` responds. |
-| Banner says "pull the model" | `npm run llm:pull` (or `ollama pull qwen2.5:7b`). |
+| Banner says "pull the model" | `npm run llm:pull` (or `ollama pull qwen3:30b-a3b`). |
 | `Port 3000 is in use` | Stop the other process, or run `PORT=3001 npm run dev`. |
 | 🔎 Research errors immediately | Start SearxNG (Docker) **or** add a Gemini key via the Key button. |
 | Plans feel slow on first run | First Ollama call loads the model into memory; subsequent calls are fast. A bigger machine / smaller model helps. |
