@@ -26,6 +26,8 @@ export interface ChatOptions {
   provider?: string;
   /** Per-request model/deployment override (from Settings). Falls back to env. */
   model?: string;
+  /** Aborts the upstream provider fetch when the client disconnects (req.signal). */
+  signal?: AbortSignal;
 }
 
 /** User-provided key wins; otherwise the env fallback. Friendly error if neither. */
@@ -77,6 +79,7 @@ class AzureOpenAIProvider implements LLMProvider {
     const { url, apiKey, model } = azureV1(opts);
     const res = await fetchWithRetry(url, {
       method: "POST",
+      signal: opts.signal,
       headers: { "Content-Type": "application/json", "api-key": apiKey },
       body: JSON.stringify({
         model,
@@ -94,6 +97,7 @@ class AzureOpenAIProvider implements LLMProvider {
     const { url, apiKey, model } = azureV1(opts);
     const res = await fetchWithRetry(url, {
       method: "POST",
+      signal: opts.signal,
       headers: { "Content-Type": "application/json", "api-key": apiKey },
       body: JSON.stringify({ model, messages, temperature: opts.temperature ?? 0.7, stream: true }),
     });
@@ -122,6 +126,7 @@ class GeminiProvider implements LLMProvider {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const res = await fetchWithRetry(url, {
       method: "POST",
+      signal: opts.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents,
@@ -153,6 +158,7 @@ class GeminiProvider implements LLMProvider {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
     const res = await fetchWithRetry(url, {
       method: "POST",
+      signal: opts.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents,
@@ -173,17 +179,26 @@ class OllamaProvider implements LLMProvider {
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
     const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen3:30b-a3b";
+    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:14b";
 
     const res = await fetchWithRetry(`${base}/api/chat`, {
       method: "POST",
+      signal: opts.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
         messages,
         stream: false,
+        // Only send `think` when OLLAMA_THINK is set — qwen2.5 (the default)
+        // rejects the param with a 400, while qwen3 reasoning models accept it:
+        // think=true isolates the <think> trace into a separate field we drop,
+        // think=false leaks it into `content`. Default (unset): omit entirely.
+        ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === "true" } : {}),
         ...(opts.json ? { format: "json" } : {}),
-        options: { temperature: opts.temperature ?? 0.7 },
+        options: {
+          temperature: opts.temperature ?? 0.7,
+          ...(process.env.OLLAMA_NUM_CTX ? { num_ctx: Number(process.env.OLLAMA_NUM_CTX) } : {}),
+        },
       }),
     });
     if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`);
@@ -193,16 +208,22 @@ class OllamaProvider implements LLMProvider {
 
   async *stream(messages: ChatMessage[], opts: ChatOptions = {}): AsyncGenerator<string> {
     const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen3:30b-a3b";
+    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:14b";
 
     const res = await fetchWithRetry(`${base}/api/chat`, {
       method: "POST",
+      signal: opts.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
         messages,
         stream: true,
-        options: { temperature: opts.temperature ?? 0.7 },
+        // see chat(): only send `think` when OLLAMA_THINK is set (qwen2.5 400s on it)
+        ...(process.env.OLLAMA_THINK ? { think: process.env.OLLAMA_THINK === "true" } : {}),
+        options: {
+          temperature: opts.temperature ?? 0.7,
+          ...(process.env.OLLAMA_NUM_CTX ? { num_ctx: Number(process.env.OLLAMA_NUM_CTX) } : {}),
+        },
       }),
     });
     if (!res.ok || !res.body) throw new Error(`Ollama ${res.status}: ${await res.text()}`);

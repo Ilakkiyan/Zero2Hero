@@ -15,7 +15,7 @@ Zero2Hero runs on a local model via [Ollama](https://ollama.com/download) by def
 #    macOS:  https://ollama.com/download/mac
 #    Windows https://ollama.com/download/windows
 #    Linux:  curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen3:30b-a3b        # 2. pull the model
+ollama pull qwen2.5:14b        # 2. pull the model
 
 npm install
 cp .env.example .env.local    # defaults to LLM_PROVIDER=ollama
@@ -53,7 +53,7 @@ A **Cloud / Local toggle** in the header switches the model backend per request 
 | Toggle | Provider | Notes |
 |--------|----------|-------|
 | **☁ Cloud** | Azure OpenAI | Quality + deployable; runs on the $100 Azure-for-Students credit. Set `AZURE_OPENAI_*` in `.env.local`. |
-| **💻 Local** | Ollama (`qwen3:30b-a3b`) | Free, private, offline — the robust fallback. |
+| **💻 Local** | Ollama (`qwen2.5:14b`) | Free, private, offline — the robust fallback. |
 
 The toggle sends an `x-llm-provider` header that [`lib/llm.ts`](lib/llm.ts) honors per request (server `LLM_PROVIDER` is the default when no header). Gemini remains available as an `LLM_PROVIDER`/research-search option.
 
@@ -149,7 +149,7 @@ If your machine has a root-owned `~/Library/Caches/ms-playwright` from an old
 A real round-trip against local Ollama, kept out of default CI so it stays fast:
 
 ```bash
-npm run llm:pull                  # ollama pull qwen3:30b-a3b  (~18 GB, the app default)
+npm run llm:pull                  # ollama pull qwen2.5:14b  (~9 GB, the app default)
 RUN_LOCAL_LLM=1 npm run llm:smoke # asserts a non-empty /api/chat response
 ```
 

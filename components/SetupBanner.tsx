@@ -90,7 +90,7 @@ AZURE_OPENAI_API_VERSION=2024-06-01`}</pre>
   }
 
   // ── Local (Ollama) setup ───────────────────────────────────────────
-  const model = health?.model || "qwen3:30b-a3b";
+  const model = health?.model || "qwen2.5:14b";
   const running = health?.running ?? false;
 
   return (

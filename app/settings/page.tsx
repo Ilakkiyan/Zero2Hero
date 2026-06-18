@@ -16,7 +16,7 @@ import {
 } from "@/lib/apiClient";
 
 const MODEL_PLACEHOLDER: Record<string, string> = {
-  ollama: "qwen3:30b-a3b",
+  ollama: "qwen2.5:14b",
   azure: "your Azure deployment name",
 };
 
