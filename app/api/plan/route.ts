@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         ...messages,
         { role: "user", content: "Produce the execution plan JSON now." },
       ],
-      { apiKey, provider: llmProvider, model: llmModel },
+      { apiKey, provider: llmProvider, model: llmModel, signal: req.signal },
     );
 
     const parsed = PlanSchema.safeParse(raw);

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
         ...sharedContextMessages(reqBody.sharedContext),
         { role: "user", content: replanUserMessage(currentPlan.data, note) },
       ],
-      { apiKey, provider: llmProvider, model: llmModel },
+      { apiKey, provider: llmProvider, model: llmModel, signal: req.signal },
     );
 
     const revised = PlanSchema.safeParse(raw);

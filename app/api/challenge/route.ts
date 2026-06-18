@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
             { role: "user", content: challengeOpenMessage(assumption) },
             ...messages,
           ],
-          { apiKey, provider: llmProvider, model: llmModel },
+          { apiKey, provider: llmProvider, model: llmModel, signal: req.signal },
         )) {
           send({ type: "token", value: chunk });
         }

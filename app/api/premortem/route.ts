@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
             { role: "system", content: PREMORTEM_SYSTEM },
             { role: "user", content: premortemUserMessage(plan) },
           ],
-          { apiKey, provider: llmProvider, model: llmModel },
+          { apiKey, provider: llmProvider, model: llmModel, signal: req.signal },
         )) {
           send({ type: "token", value: chunk });
         }

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
             { role: "system", content: DRAFT_SYSTEM },
             { role: "user", content: draftUserMessage(body.brief, body.milestone) },
           ],
-          { apiKey, provider: llmProvider, model: llmModel },
+          { apiKey, provider: llmProvider, model: llmModel, signal: req.signal },
         )) {
           send({ type: "token", value: chunk });
         }

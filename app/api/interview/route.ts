@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       try {
         for await (const chunk of chatStream(
           [{ role: "system", content: INTERVIEW_SYSTEM }, ...contextMessages, ...messages],
-          { apiKey, provider: llmProvider, model: llmModel },
+          { apiKey, provider: llmProvider, model: llmModel, signal: req.signal },
         )) {
           buf += chunk;
 
