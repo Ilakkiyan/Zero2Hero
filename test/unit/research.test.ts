@@ -50,7 +50,7 @@ describe("runAgenticResearch — local (SearxNG)", () => {
     expect(text).toContain("Bottom line");
     const sources = events.find((e) => e.type === "sources") as any;
     expect(sources.value[0].uri).toBe("https://a.com");
-    // No Gemini key → SearxNG URL was hit, not Google.
+    // The SearxNG JSON search endpoint was hit.
     expect(fetchWithRetry.mock.calls[0][0]).toContain("/search?q=");
   });
 
@@ -134,30 +134,5 @@ describe("runAgenticResearch — Evidence Engine", () => {
 
     const events = await collect(runAgenticResearch(validPlan.brief));
     expect(events.find((e) => e.type === "evidence")).toBeUndefined();
-  });
-});
-
-describe("runAgenticResearch — cloud (Gemini grounding)", () => {
-  it("uses grounded search and reports the cloud backend", async () => {
-    chatJSON.mockResolvedValueOnce({ questions: ["q1"] });
-    fetchWithRetry.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        candidates: [
-          {
-            content: { parts: [{ text: "grounded answer" }] },
-            groundingMetadata: { groundingChunks: [{ web: { uri: "https://g.com", title: "G" } }] },
-          },
-        ],
-      }),
-    });
-    chatStream.mockReturnValueOnce(synth(["synthesis"]));
-
-    const events = await collect(runAgenticResearch(validPlan.brief, { geminiKey: "g-key" }));
-
-    expect(events[0]).toEqual({ type: "meta", backend: "cloud" });
-    const sources = events.find((e) => e.type === "sources") as any;
-    expect(sources.value[0].uri).toBe("https://g.com");
-    expect(fetchWithRetry.mock.calls[0][0]).toContain("generativelanguage.googleapis.com");
   });
 });

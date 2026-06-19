@@ -23,11 +23,52 @@ describe("InterviewPanel", () => {
         hasPlan={false}
         onRefine={async () => true}
         refining={false}
-        sharedContext=""
+        sharedContext="" onSetSharedContext={() => {}}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /load sample idea/i }));
     expect(onLoadSample).toHaveBeenCalledOnce();
+  });
+
+  it("offers persona presets when no context is set and seeds it on tap", async () => {
+    const onSetSharedContext = vi.fn();
+    render(
+      <InterviewPanel
+        messages={[]}
+        setMessages={() => {}}
+        readyToPlan={false}
+        setReadyToPlan={() => {}}
+        onGeneratePlan={() => {}}
+        onLoadSample={() => {}}
+        planning={false}
+        hasPlan={false}
+        onRefine={async () => true}
+        refining={false}
+        sharedContext="" onSetSharedContext={onSetSharedContext}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /solo first-time founder/i }));
+    expect(onSetSharedContext).toHaveBeenCalledOnce();
+    expect(onSetSharedContext.mock.calls[0][0]).toMatch(/solo first-time founder/i);
+  });
+
+  it("hides the persona nudge once context is set", () => {
+    render(
+      <InterviewPanel
+        messages={[]}
+        setMessages={() => {}}
+        readyToPlan={false}
+        setReadyToPlan={() => {}}
+        onGeneratePlan={() => {}}
+        onLoadSample={() => {}}
+        planning={false}
+        hasPlan={false}
+        onRefine={async () => true}
+        refining={false}
+        sharedContext="Solo founder, $2k budget" onSetSharedContext={() => {}}
+      />,
+    );
+    expect(screen.queryByText(/first, who are you/i)).not.toBeInTheDocument();
   });
 
   it("renders existing messages and the Generate plan CTA once ready", async () => {
@@ -48,7 +89,7 @@ describe("InterviewPanel", () => {
         hasPlan={false}
         onRefine={async () => true}
         refining={false}
-        sharedContext=""
+        sharedContext="" onSetSharedContext={() => {}}
       />,
     );
     expect(screen.getByText("my idea")).toBeInTheDocument();
@@ -84,7 +125,7 @@ describe("InterviewPanel", () => {
           hasPlan={false}
           onRefine={async () => true}
           refining={false}
-          sharedContext=""
+          sharedContext="" onSetSharedContext={() => {}}
         />
       );
     }
@@ -122,7 +163,7 @@ describe("InterviewPanel", () => {
           hasPlan
           onRefine={onRefine}
           refining={false}
-          sharedContext=""
+          sharedContext="" onSetSharedContext={() => {}}
         />
       );
     }
@@ -158,7 +199,7 @@ describe("InterviewPanel", () => {
           hasPlan={false}
           onRefine={async () => true}
           refining={false}
-          sharedContext=""
+          sharedContext="" onSetSharedContext={() => {}}
         />
       );
     }

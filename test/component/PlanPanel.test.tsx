@@ -118,7 +118,7 @@ describe("PlanPanel", () => {
     // dashboard's "biggest unknown", so allow more than one match).
     expect(screen.getAllByText(/Students will interview strangers/).length).toBeGreaterThan(0);
 
-    await userEvent.click(screen.getByRole("button", { name: /draft it/i }));
+    await userEvent.click(screen.getByRole("button", { name: /draft this step/i }));
     // The draft modal opens (StreamModal titled "Draft for").
     expect(await screen.findByText(/draft for/i)).toBeInTheDocument();
   });

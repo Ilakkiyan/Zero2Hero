@@ -109,23 +109,18 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 AZURE_OPENAI_API_VERSION=2024-06-01
 ```
 
-### 🔑 Gemini key (bring-your-own, optional)
-
-Used only for **cloud** web-search grounding. Click the **Key** button in the
-header and paste a free key from <https://aistudio.google.com/apikey> — it's
-stored in your browser and sent per-request, never persisted server-side.
-(Or set `GEMINI_API_KEY` in `.env.local` as a fallback.)
-
 ### 🔎 Local web research (SearxNG, no key)
 
-Research works locally with no key via a SearxNG container (needs Docker):
+Web research runs **exclusively** on a local, private SearxNG container — no API
+key, no third-party services. The [desktop app](#️-run-as-a-desktop-app-electron)
+starts it for you; to run it by hand (needs Docker):
 
 ```bash
 docker compose -f docker-compose.searxng.yml up -d   # serves http://localhost:8080
 ```
 
-JSON output is pre-enabled in `searxng/settings.yml`. Without it (and without a
-Gemini key), the **🔎 Research** button will report the search backend is down.
+JSON output is pre-enabled in `searxng/settings.yml`. If SearxNG isn't running,
+the **🔎 Research** button will report the search backend is down.
 
 ### 📅 Google Calendar sync (optional)
 
@@ -140,10 +135,15 @@ GOOGLE_REDIRECT_URI=http://localhost:3000/api/calendar/callback
 
 ### 🖥️ Run as a desktop app (Electron)
 
+The desktop app is the recommended way to run Zero2Hero — a native window (not a
+browser tab) that **auto-starts the local SearxNG container** so 🔎 Research works
+with zero setup (best-effort; needs Docker running, set `Z2H_SEARXNG=0` to skip).
+
 ```bash
 npm run desktop:dev     # dev window against `next dev`
 # or
 npm run desktop         # production build, then open the window
+npm run dist            # build installers (.dmg / .exe / AppImage) → ./release
 ```
 
 ---
@@ -189,6 +189,6 @@ RUN_LOCAL_LLM=1 npm run llm:smoke
 | Banner says "Ollama not detected" | Start the Ollama app; confirm `curl http://localhost:11434/api/tags` responds. |
 | Banner says "pull the model" | `npm run llm:pull` (or `ollama pull qwen2.5:14b`). |
 | `Port 3000 is in use` | Stop the other process, or run `PORT=3001 npm run dev`. |
-| 🔎 Research errors immediately | Start SearxNG (Docker) **or** add a Gemini key via the Key button. |
+| 🔎 Research errors immediately | Start SearxNG (`docker compose -f docker-compose.searxng.yml up -d`), or launch the desktop app which starts it for you. Make sure Docker is running. |
 | Plans feel slow on first run | First Ollama call loads the model into memory; subsequent calls are fast. A bigger machine / smaller model helps. |
 | E2E can't find a browser | See the macOS Playwright note above. |

@@ -37,22 +37,12 @@ describe("POST /api/research", () => {
     expect(runAgenticResearch).not.toHaveBeenCalled();
   });
 
-  it("uses the local backend (no Gemini key) by default", async () => {
+  it("runs the local SearxNG backend (no third-party key)", async () => {
     runAgenticResearch.mockReturnValueOnce(emit([{ type: "meta", backend: "local" }]));
     await POST(req({ brief: validPlan.brief }));
-    expect(runAgenticResearch).toHaveBeenCalledWith(
-      validPlan.brief,
-      expect.objectContaining({ geminiKey: undefined }),
-    );
-  });
-
-  it("passes the Gemini key through for the cloud backend", async () => {
-    runAgenticResearch.mockReturnValueOnce(emit([{ type: "meta", backend: "cloud" }]));
-    await POST(req({ brief: validPlan.brief }, { "x-gemini-key": "g-key" }));
-    expect(runAgenticResearch).toHaveBeenCalledWith(
-      validPlan.brief,
-      expect.objectContaining({ geminiKey: "g-key" }),
-    );
+    const opts = runAgenticResearch.mock.calls[0][1];
+    expect(opts).not.toHaveProperty("geminiKey");
+    expect(opts.searxUrl).toContain("8080");
   });
 
   it("forwards the plan's assumptions (id/claim/risk) for evidence linking", async () => {

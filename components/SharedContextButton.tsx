@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PERSONA_PRESETS } from "@/lib/personas";
 
 interface Props {
   value: string;
@@ -51,6 +52,22 @@ export default function SharedContextButton({ value, onSave }: Props) {
               you don&apos;t repeat yourself, and your ideas don&apos;t trip over each other&apos;s
               assumptions.
             </p>
+
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-medium text-muted">Who are you? (tap to start)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {PERSONA_PRESETS.map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => setDraft(p.text)}
+                    className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs text-text transition-opacity hover:opacity-80"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <textarea
               value={draft}

@@ -15,6 +15,15 @@ export interface NextMove {
   title: string;
   rationale: string;
   milestone: Milestone;
+  /** The single concrete action to take first — the "first real step" you can
+   *  start this weekend, pulled from the milestone (Direction B: don't just hand
+   *  over a plan, name the first move). */
+  firstStep: string;
+}
+
+/** The one concrete thing to do first: a milestone's opening task, or its goal. */
+function firstStepOf(m: Milestone): string {
+  return m.tasks.find((t) => t.trim())?.trim() ?? m.goal;
 }
 
 export function nextMove(plan: Plan): NextMove {
@@ -36,6 +45,7 @@ export function nextMove(plan: Plan): NextMove {
       title: `Validate your riskiest open assumption — “${open.claim}”`,
       rationale: `${cap(open.risk)}-risk and unresolved. Cheapest disproof: ${open.cheapTest}`,
       milestone,
+      firstStep: open.cheapTest,
     };
   }
 
@@ -45,6 +55,7 @@ export function nextMove(plan: Plan): NextMove {
       title: `Ship the next milestone — ${next.goal}`,
       rationale: "Every assumption is validated. Time to execute.",
       milestone: next,
+      firstStep: firstStepOf(next),
     };
   }
 
@@ -57,10 +68,12 @@ export function nextMove(plan: Plan): NextMove {
     tasks: ["Pick the next outcome that moves the idea forward"],
     status: "todo",
   };
+  const milestone = plan.milestones[0] ?? fallback;
   return {
     title: "Plan your next milestone",
     rationale: "Everything so far is done or validated — set the next target.",
-    milestone: plan.milestones[0] ?? fallback,
+    milestone,
+    firstStep: firstStepOf(milestone),
   };
 }
 

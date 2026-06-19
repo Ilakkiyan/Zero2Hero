@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { chatJSON, fetchWithRetry, getProvider, resolveGeminiKey } from "@/lib/llm";
+import { chatJSON, fetchWithRetry, getProvider } from "@/lib/llm";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -11,7 +11,6 @@ describe("getProvider", () => {
   it("honours an explicit valid provider name (case-insensitive)", () => {
     expect(getProvider("azure").name).toBe("azure");
     expect(getProvider("OLLAMA").name).toBe("ollama");
-    expect(getProvider("gemini").name).toBe("gemini");
   });
 
   it("falls back to the env default for an unknown name", () => {
@@ -22,22 +21,6 @@ describe("getProvider", () => {
   it("defaults to ollama when nothing is configured", () => {
     vi.stubEnv("LLM_PROVIDER", "");
     expect(getProvider(undefined).name).toBe("ollama");
-  });
-});
-
-describe("resolveGeminiKey", () => {
-  it("prefers the per-request override", () => {
-    expect(resolveGeminiKey("override")).toBe("override");
-  });
-
-  it("falls back to the env key", () => {
-    vi.stubEnv("GEMINI_API_KEY", "env-key");
-    expect(resolveGeminiKey()).toBe("env-key");
-  });
-
-  it("throws a friendly error when no key is available", () => {
-    vi.stubEnv("GEMINI_API_KEY", "");
-    expect(() => resolveGeminiKey()).toThrow(/No Gemini API key/);
   });
 });
 

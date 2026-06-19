@@ -1,35 +1,8 @@
 /**
- * Bring-your-own-key helpers (client-side). The user's Gemini key lives in
- * localStorage and rides on each API request as the x-gemini-key header. It is
- * used by the server for that request only — never persisted or logged there.
+ * Client-side request helpers. Generation runs on the local Ollama provider by
+ * default (or Azure when the user flips the cloud toggle); web research runs on
+ * a local SearxNG instance. No third-party API keys are involved client-side.
  */
-
-const KEY_STORAGE = "z2h_gemini_key";
-
-export function getGeminiKey(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    return localStorage.getItem(KEY_STORAGE) || "";
-  } catch {
-    return "";
-  }
-}
-
-export function setGeminiKey(key: string): void {
-  try {
-    localStorage.setItem(KEY_STORAGE, key);
-  } catch {
-    /* storage blocked — key applies for this session only */
-  }
-}
-
-export function clearGeminiKey(): void {
-  try {
-    localStorage.removeItem(KEY_STORAGE);
-  } catch {
-    /* ignore */
-  }
-}
 
 // ── Provider preference (UI toggle: cloud=Azure | local=Ollama) ──────
 const PROVIDER_STORAGE = "z2h_provider";
@@ -81,15 +54,13 @@ export function setModelOverride(provider: string, model: string): void {
   }
 }
 
-/** JSON headers plus the chosen provider, model override, and the user's key when set. */
+/** JSON headers plus the chosen provider and any model override. */
 export function apiHeaders(): HeadersInit {
-  const key = getGeminiKey();
   const provider = providerName();
   const model = getModelOverride(provider);
   return {
     "Content-Type": "application/json",
     "x-llm-provider": provider,
-    ...(key ? { "x-gemini-key": key } : {}),
     ...(model ? { "x-llm-model": model } : {}),
   };
 }

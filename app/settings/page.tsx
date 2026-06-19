@@ -5,11 +5,9 @@ import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import CalendarSetupModal from "@/components/CalendarSetupModal";
 import {
-  getGeminiKey,
   getModelOverride,
   getProviderPref,
   providerName,
-  setGeminiKey,
   setModelOverride,
   setProviderPref,
   type ProviderPref,
@@ -20,15 +18,11 @@ const MODEL_PLACEHOLDER: Record<string, string> = {
   azure: "your Azure deployment name",
 };
 
-type KeyStatus = "idle" | "checking" | "saved" | "invalid";
 type CalState = "unknown" | "connected" | "disconnected";
 
 export default function SettingsPage() {
   const [provider, setProvider] = useState<ProviderPref>("local");
   const [model, setModel] = useState("");
-  const [keyValue, setKeyValue] = useState("");
-  const [keyStatus, setKeyStatus] = useState<KeyStatus>("idle");
-  const [keyError, setKeyError] = useState<string | null>(null);
   const [cal, setCal] = useState<CalState>("unknown");
   const [calBusy, setCalBusy] = useState(false);
   const [showCalGuide, setShowCalGuide] = useState(false);
@@ -40,7 +34,6 @@ export default function SettingsPage() {
     const p = getProviderPref();
     setProvider(p);
     setModel(getModelOverride(providerName(p)));
-    setKeyValue(getGeminiKey());
     refreshCalStatus();
   }, []);
 
@@ -53,34 +46,6 @@ export default function SettingsPage() {
   function saveModel(next: string) {
     setModel(next);
     setModelOverride(server, next);
-  }
-
-  async function saveKey() {
-    const k = keyValue.trim();
-    setKeyError(null);
-    if (!k) {
-      setGeminiKey("");
-      setKeyStatus("saved");
-      return;
-    }
-    setKeyStatus("checking");
-    try {
-      const res = await fetch("/api/verify-key", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-gemini-key": k },
-      });
-      const data = (await res.json()) as { valid: boolean; error?: string };
-      if (data.valid) {
-        setGeminiKey(k);
-        setKeyStatus("saved");
-      } else {
-        setKeyStatus("invalid");
-        setKeyError(data.error || "That key didn't work.");
-      }
-    } catch {
-      setKeyStatus("invalid");
-      setKeyError("Couldn't verify the key — check your connection.");
-    }
   }
 
   async function refreshCalStatus() {
@@ -164,42 +129,14 @@ export default function SettingsPage() {
         </p>
       </Section>
 
-      {/* Gemini key */}
+      {/* Web research */}
       <Section
-        title="Gemini API key"
-        hint="Optional — only enables cloud web-search grounding. Stored in this browser, sent per request."
+        title="Web research"
+        hint="Research runs on a private, local SearxNG search engine — no API key, no third-party services."
       >
-        <div className="flex items-center gap-2">
-          <input
-            type="password"
-            value={keyValue}
-            onChange={(e) => {
-              setKeyValue(e.target.value);
-              setKeyStatus("idle");
-              setKeyError(null);
-            }}
-            placeholder="AIza… or AQ.…"
-            className="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
-          />
-          <button
-            onClick={saveKey}
-            disabled={keyStatus === "checking"}
-            className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {keyStatus === "checking" ? "Verifying…" : "Save"}
-          </button>
-        </div>
-        {keyError && <p className="mt-1.5 text-xs text-risk-high">{keyError}</p>}
-        {keyStatus === "saved" && <p className="mt-1.5 text-xs text-risk-low">Saved ✓</p>}
-        <p className="mt-1.5 text-xs text-muted">
-          <a
-            href="https://aistudio.google.com/apikey"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-accent underline"
-          >
-            Get a free key →
-          </a>
+        <p className="text-xs leading-relaxed text-muted">
+          The desktop app starts SearxNG automatically (it needs Docker running). Nothing to
+          configure here.
         </p>
       </Section>
 
