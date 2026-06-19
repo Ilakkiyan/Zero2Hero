@@ -26,9 +26,19 @@ export type AssumptionStatus = z.infer<typeof AssumptionStatus>;
 export const EvidenceStance = z.enum(["supports", "undermines", "neutral"]);
 export type EvidenceStance = z.infer<typeof EvidenceStance>;
 
+/**
+ * Where a piece of evidence came from. "web" is a cited online source (the
+ * research agent); "field" is PRIMARY evidence — the result of a real-world test
+ * the founder actually ran (talked to 10 people, 3 prepaid, etc.). Field
+ * evidence usually has no URL, so `source.uri` may be empty.
+ */
+export const EvidenceKind = z.enum(["web", "field"]);
+export type EvidenceKind = z.infer<typeof EvidenceKind>;
+
 export const EvidenceSchema = z.object({
   id: z.string(),
-  source: z.object({ title: z.string(), uri: z.string() }),
+  kind: EvidenceKind.default("web"),
+  source: z.object({ title: z.string(), uri: z.string().default("") }),
   snippet: z.string(),
   stance: EvidenceStance.default("neutral"),
   createdAt: z.string().nullable().default(null),

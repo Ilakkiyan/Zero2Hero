@@ -14,10 +14,12 @@ import type {
 import StreamModal from "@/components/StreamModal";
 import ResearchModal from "@/components/ResearchModal";
 import ChallengeModal from "@/components/ChallengeModal";
+import FieldTestModal, { type FieldEvidence } from "@/components/FieldTestModal";
 import CalendarSetupModal from "@/components/CalendarSetupModal";
 import ConfidenceTimeline from "@/components/ConfidenceTimeline";
 import { summarizeValidation } from "@/lib/validation";
 import { nextMove } from "@/lib/nextMove";
+import { verdict, type VerdictCall } from "@/lib/verdict";
 import type { PlanChangeMeta } from "@/lib/history";
 import type { EvidenceLink, SuggestedStatus } from "@/lib/research";
 
@@ -34,6 +36,12 @@ function pickStatus(list: SuggestedStatus[]): Exclude<SuggestedStatus, null> | n
   if (list.includes("passed")) return "passed";
   return null;
 }
+
+const verdictStyle: Record<VerdictCall, { box: string; label: string; tag: string }> = {
+  build: { box: "border-risk-low/50 bg-risk-low/[0.08]", label: "text-risk-low", tag: "✅ Verdict" },
+  kill: { box: "border-risk-high/50 bg-risk-high/[0.08]", label: "text-risk-high", tag: "🛑 Verdict" },
+  "keep-testing": { box: "border-accent/40 bg-accent/[0.06]", label: "text-accent", tag: "🧭 Verdict" },
+};
 
 const riskColor: Record<RiskLevel, string> = {
   high: "text-risk-high",
@@ -74,8 +82,11 @@ const statusTone: Record<AssumptionStatus, string> = {
 export default function PlanPanel({ plan, history, onPlanChange, onReplan, replanning }: Props) {
   const [draftFor, setDraftFor] = useState<Milestone | null>(null);
   const [showPremortem, setShowPremortem] = useState(false);
+  const [showFirstVersion, setShowFirstVersion] = useState(false);
+  const [showLaunchKit, setShowLaunchKit] = useState(false);
   const [showResearch, setShowResearch] = useState(false);
   const [showChallenge, setShowChallenge] = useState(false);
+  const [fieldTestFor, setFieldTestFor] = useState<Assumption | null>(null);
   const [showCalSetup, setShowCalSetup] = useState(false);
   const [note, setNote] = useState("");
 
@@ -116,6 +127,7 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
       const existing = a.evidence ?? [];
       const newEvidence: Evidence[] = ls.map((l, i) => ({
         id: `${a.id}-ev-${existing.length + i + 1}`,
+        kind: "web",
         source: l.source,
         snippet: l.snippet,
         stance: l.stance,
@@ -133,6 +145,41 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
     onPlanChange(
       { ...plan, assumptions },
       { kind: "evidence", label: `${n} citation${n === 1 ? "" : "s"} linked from research` },
+    );
+  }
+
+  /**
+   * Field Test sink: a real-world test result becomes PRIMARY evidence on the
+   * assumption (no URL — it's something the founder actually did), applies any
+   * suggested status, and logs one timeline event. Same shape as the research
+   * sink, so confidence moves the same way — just from real data, not the web.
+   */
+  function applyFieldEvidence(assumptionId: string, ev: FieldEvidence) {
+    if (!plan) return;
+    const now = new Date().toISOString();
+    const assumptions = plan.assumptions.map((a) => {
+      if (a.id !== assumptionId) return a;
+      const existing = a.evidence ?? [];
+      const evidence: Evidence[] = [
+        ...existing,
+        {
+          id: `${a.id}-ft-${existing.length + 1}`,
+          kind: "field",
+          source: { title: `Field test — ${ev.method}`, uri: "" },
+          snippet: ev.summary,
+          stance: ev.stance,
+          createdAt: now,
+        },
+      ];
+      return {
+        ...a,
+        evidence,
+        ...(ev.suggestedStatus ? { status: ev.suggestedStatus, updatedAt: now } : {}),
+      };
+    });
+    onPlanChange(
+      { ...plan, assumptions },
+      { kind: "evidence", label: `Field test result on “${assumptionId}”`, assumptionId },
     );
   }
 
@@ -197,6 +244,7 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
   }, [pendingSync, plan]);
 
   const move = plan ? nextMove(plan) : null;
+  const theVerdict = plan ? verdict(plan) : null;
   // The weakest assumption to red-team: the riskiest open one, else the first.
   const challengeTarget = plan
     ? summarizeValidation(plan).highestRiskOpen ?? plan.assumptions[0] ?? null
@@ -230,8 +278,56 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
         </div>
       ) : (
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
-          {/* Calendar sync */}
+          {/* Toolbar laid out as the journey: de-risk → build & launch → share. */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* De-risk the idea */}
+            <button
+              onClick={() => setShowChallenge(true)}
+              disabled={!challengeTarget}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80 disabled:opacity-50"
+            >
+              ⚔️ Challenge
+            </button>
+            <button
+              onClick={() => setShowResearch(true)}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              🔎 Research
+            </button>
+            <button
+              onClick={() => setShowPremortem(true)}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              ⚠️ Pre-mortem
+            </button>
+
+            <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+
+            {/* Build & launch the first version */}
+            <button
+              onClick={() => setShowFirstVersion(true)}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              🚀 First version
+            </button>
+            <button
+              onClick={() => setShowLaunchKit(true)}
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              📣 Launch kit
+            </button>
+
+            <span className="mx-0.5 h-4 w-px bg-border" aria-hidden />
+
+            {/* Share & schedule */}
+            <a
+              href="/pitch"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
+            >
+              📄 Export pitch
+            </a>
             <button
               onClick={syncCalendar}
               disabled={syncing}
@@ -246,35 +342,23 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
             >
               Setup guide
             </button>
-            <a
-              href="/pitch"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
-            >
-              📄 Export pitch
-            </a>
-            <button
-              onClick={() => setShowPremortem(true)}
-              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
-            >
-              ⚠️ Pre-mortem
-            </button>
-            <button
-              onClick={() => setShowResearch(true)}
-              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80"
-            >
-              🔎 Research
-            </button>
-            <button
-              onClick={() => setShowChallenge(true)}
-              disabled={!challengeTarget}
-              className="rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-opacity hover:opacity-80 disabled:opacity-50"
-            >
-              ⚔️ Challenge
-            </button>
             {syncMsg && <span className="text-xs text-muted">{syncMsg}</span>}
           </div>
+
+          {/* The go/no-go call — the decision the founder came for. */}
+          {theVerdict && (
+            <section className={`rounded-xl border p-4 ${verdictStyle[theVerdict.call].box}`}>
+              <p className={`text-[10px] font-semibold uppercase tracking-wide ${verdictStyle[theVerdict.call].label}`}>
+                {verdictStyle[theVerdict.call].tag}
+              </p>
+              <p className="mt-1 text-base font-semibold text-text">{theVerdict.headline}</p>
+              <p className="mt-0.5 text-xs text-muted">{theVerdict.reason}</p>
+              <p className="mt-2 text-xs text-text">
+                <span className={`font-semibold ${verdictStyle[theVerdict.call].label}`}>Do this:</span>{" "}
+                {theVerdict.action}
+              </p>
+            </section>
+          )}
 
           {/* The one decisive action right now. */}
           {move && (
@@ -364,6 +448,13 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
                     ),
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setFieldTestFor(a)}
+                  className="rounded-lg border border-accent/50 bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent transition-opacity hover:opacity-80"
+                >
+                  🧪 Test it for real
+                </button>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
                     value={a.resultNote}
@@ -395,14 +486,18 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
                             {e.stance}
                           </span>
                           <span className="min-w-0">
-                            <a
-                              href={e.source.uri}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-accent underline-offset-2 hover:underline"
-                            >
-                              {e.source.title}
-                            </a>
+                            {e.kind === "field" || !e.source.uri ? (
+                              <span className="text-text">{e.source.title}</span>
+                            ) : (
+                              <a
+                                href={e.source.uri}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-accent underline-offset-2 hover:underline"
+                              >
+                                {e.source.title}
+                              </a>
+                            )}
                             {e.snippet && <span className="block text-muted">{e.snippet}</span>}
                           </span>
                         </li>
@@ -492,6 +587,26 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
         />
       )}
 
+      {showFirstVersion && plan && (
+        <StreamModal
+          title="Your first version"
+          subtitle="The cheapest thing you can put in front of a user this week"
+          endpoint="/api/firstversion"
+          body={{ plan }}
+          onClose={() => setShowFirstVersion(false)}
+        />
+      )}
+
+      {showLaunchKit && plan && (
+        <StreamModal
+          title="Launch kit"
+          subtitle="Get your first version in front of its first real users"
+          endpoint="/api/launchkit"
+          body={{ plan }}
+          onClose={() => setShowLaunchKit(false)}
+        />
+      )}
+
       {showResearch && plan && (
         <ResearchModal
           brief={plan.brief}
@@ -506,6 +621,15 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
           assumption={challengeTarget}
           onConcede={() => concede(challengeTarget)}
           onClose={() => setShowChallenge(false)}
+        />
+      )}
+
+      {fieldTestFor && plan && (
+        <FieldTestModal
+          brief={plan.brief}
+          assumption={fieldTestFor}
+          onApply={(ev) => applyFieldEvidence(fieldTestFor.id, ev)}
+          onClose={() => setFieldTestFor(null)}
         />
       )}
 

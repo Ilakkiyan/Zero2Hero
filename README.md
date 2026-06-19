@@ -104,12 +104,16 @@ Theming is CSS-variable driven (see [`app/globals.css`](app/globals.css)); dark 
 
 ## The de-risking loop (what makes it wow)
 
-Zero2Hero isn't a planner that hands you a list — it tries to *prove or kill* your idea with evidence, live, and reshapes the plan as it learns. Four connected pieces turn the separate tools into one evidence-driven system:
+Zero2Hero isn't a planner that hands you a list — it tries to *prove or kill* your idea with evidence, live, and carries you past the plan toward a real decision. Connected pieces turn the separate tools into one evidence-driven system:
 
 - **Adversarial cofounder** — the headline feature, and the one a solo founder doesn't have. `⚔️ Challenge` red-teams your weakest assumption and argues it's wrong. Defend it, or **concede** → it marks the assumption failed and re-plans. A cofounder that pushes back, not a yes-man ([`components/ChallengeModal.tsx`](components/ChallengeModal.tsx)).
+- **Field Test** — `🧪 Test it for real` takes you *past the plan*: it designs the cheapest **real-world** test for an assumption — matched to the idea and a solo founder's scale, so it's often **offline** (10 DMs, a flyer + sign-up sheet, a pre-order/deposit, a concierge run), never a forced software build. You run it, log what actually happened, and the result becomes **primary evidence** that moves confidence — the honest counterpart to web research ([`lib/fieldtest.ts`](lib/fieldtest.ts), [`components/FieldTestModal.tsx`](components/FieldTestModal.tsx)).
 - **Evidence Engine** — `🔎 Research` doesn't just write a brief. The agent maps each finding back onto your assumptions as **cited evidence** (supports / undermines), proposes a status change, and you apply it in one click. Hallucinated citations are dropped server-side ([`lib/research.ts`](lib/research.ts)).
 - **De-risking timeline** — every change snapshots confidence, drawn as a sparkline + "what changed & why" log. Watch the number move as the idea gets de-risked ([`components/ConfidenceTimeline.tsx`](components/ConfidenceTimeline.tsx)).
 - **Decisive next move** — a banner names the ONE highest-leverage action right now (validate the riskiest open assumption, then ship) and the concrete first step to **start this weekend**, with one-click **Draft this step** ([`lib/nextMove.ts`](lib/nextMove.ts)).
+- **First version** — `🚀 First version` turns a validated-enough idea into the cheapest *thing that exists*: an embedded, paste-and-open **clickable HTML prototype** when the idea is genuinely software, or a **minimum-offer + concierge plan** (the exact offer, price, and the script to book customer #1) when it isn't. Past the plan, into something real ([`app/api/firstversion/route.ts`](app/api/firstversion/route.ts)).
+- **Launch kit** — `📣 Launch kit` gets that first version in front of its first real users via channels matched to **where this target user actually is** — the right subreddits / Show HN for an online idea, or local boards, neighborhood groups, and referrals for an offline one — with ready-to-post copy, a first-customer outreach message, and a first-week checklist ([`app/api/launchkit/route.ts`](app/api/launchkit/route.ts)).
+- **The Verdict** — the go/no-go the founder came for: **Build it / Don't build this / Not yet**, derived from the live confidence picture. Crucially, "Build" is **gated on primary (field) evidence** — a high-risk assumption that "passed" on reasoning alone isn't proof — so the verdict can't be talked into a yes ([`lib/verdict.ts`](lib/verdict.ts)).
 
 Confidence is **evidence-aware**: supporting/undermining citations nudge it (bounded) on top of assumption status ([`lib/validation.ts`](lib/validation.ts)). Everything runs offline on the local model + SearxNG.
 
@@ -192,7 +196,7 @@ The API key is handled so a public repo/demo can't leak or get spammed:
 
 - **Never in the repo.** Keys live only in `.env.local`, which is git-ignored (verified not tracked, not in history). The repo you link on Devpost contains no secrets.
 - **Server-side only.** `lib/llm.ts` runs in Node API routes; the key is read from `process.env` and never sent to the browser. It is not a `NEXT_PUBLIC_` var, so it's never inlined into the client bundle. Client components import only `type ChatMessage`.
-- **Rate limited.** Both API routes apply a per-IP limiter (`lib/ratelimit.ts`) — best-effort spam protection for the public demo. Note: in-memory, so it resets on serverless cold starts; it's a speed bump, not a wall.
+- **Rate limited.** Every LLM API route applies a per-IP limiter (`lib/ratelimit.ts`) — best-effort spam protection for the public demo. Note: in-memory, so it resets on serverless cold starts; it's a speed bump, not a wall.
 - **Backoff.** `lib/llm.ts` retries 429/503 with capped backoff so a free-tier burst doesn't fail the request.
 
 **Do this before going public (the real protection):**
