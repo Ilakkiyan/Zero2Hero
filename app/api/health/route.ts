@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (want !== "ollama") {
-    // gemini or anything else — treat as a configured remote provider.
+    // any other remote provider — treat as configured.
     return NextResponse.json({ provider: want, local: false, ready: true });
   }
 

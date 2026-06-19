@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Zero2Hero",
-  description: "The AI companion that turns a vague idea into a realistic execution plan.",
+  title: "Zero2Hero — the AI cofounder for solo first-time founders",
+  description:
+    "Turn the idea you can't stop thinking about into a realistic execution plan — and find out if it's worth building before you bet your nights and weekends on it.",
 };
 
 // Runs before paint: applies the saved theme (or system preference) so there's

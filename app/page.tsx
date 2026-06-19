@@ -7,7 +7,6 @@ import PlanPanel from "@/components/PlanPanel";
 import ProjectTabs from "@/components/ProjectTabs";
 import SharedContextButton from "@/components/SharedContextButton";
 import ThemeToggle from "@/components/ThemeToggle";
-import ApiKeyButton from "@/components/ApiKeyButton";
 import SetupBanner from "@/components/SetupBanner";
 import ProviderToggle from "@/components/ProviderToggle";
 import { apiHeaders, getProviderPref, type ProviderPref } from "@/lib/apiClient";
@@ -227,14 +226,13 @@ export default function Home() {
     <main className="flex h-screen flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <h1 className="text-base font-semibold tracking-tight text-text">Zero2Hero</h1>
-        <span className="text-sm text-muted">idea → execution plan</span>
+        <span className="text-sm text-muted">your AI cofounder · idea → execution plan</span>
         <div className="ml-auto flex items-center gap-2">
           <SharedContextButton
             value={ws.sharedContext}
             onSave={(text) => setWs((w) => setSharedContext(w, text))}
           />
           <ProviderToggle value={providerPref} onChange={setProviderPref} />
-          <ApiKeyButton />
           <ThemeToggle />
           <Link
             href="/settings"
@@ -274,6 +272,7 @@ export default function Home() {
             onRefine={replan}
             refining={replanning}
             sharedContext={sharedContext}
+            onSetSharedContext={(text) => setWs((w) => setSharedContext(w, text))}
           />
         </section>
         <section className="min-h-0 overflow-hidden">

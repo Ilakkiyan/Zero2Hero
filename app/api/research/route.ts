@@ -5,7 +5,7 @@ import { rateLimit, clientKey } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
-// Agentic research runs several LLM + grounded-search calls; give it room.
+// Agentic research runs several LLM + SearxNG search calls; give it room.
 // 60s is the Vercel Hobby ceiling (the loop typically finishes in ~25s).
 // On Pro you can raise this to 300.
 export const maxDuration = 60;
@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const apiKey = req.headers.get("x-gemini-key") || undefined;
   const llmProvider = req.headers.get("x-llm-provider") || undefined;
   const llmModel = req.headers.get("x-llm-model") || undefined;
 
@@ -69,7 +68,6 @@ export async function POST(req: NextRequest) {
       try {
         const searxUrl = process.env.SEARXNG_URL || "http://localhost:8080";
         for await (const event of runAgenticResearch(brief, {
-          geminiKey: apiKey,
           searxUrl,
           provider: llmProvider,
           model: llmModel,

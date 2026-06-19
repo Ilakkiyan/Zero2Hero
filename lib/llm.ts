@@ -4,10 +4,7 @@
  * The rest of the app only ever imports `chat()` / `chatJSON()` — it never
  * knows which backend is live. Swap providers by changing LLM_PROVIDER in
  * .env.local; no app code changes. This is the seam that lets us dev on free
- * Ollama, demo on Gemini's free tier, and fall back to Azure's $100 credit.
- *
- * Streaming is intentionally NOT here yet (Day 2 on the plan). Spine first:
- * every provider implements a single non-streaming `chat()`.
+ * local Ollama and fall back to Azure's $100 credit.
  */
 
 export type Role = "system" | "user" | "assistant";
@@ -20,25 +17,12 @@ export interface ChatOptions {
   /** Hint the model to return strict JSON. Adapters enforce where supported. */
   json?: boolean;
   temperature?: number;
-  /** Per-request "bring your own key" override (Gemini). Falls back to env. */
-  apiKey?: string;
-  /** Per-request provider override ("azure" | "ollama" | "gemini"). */
+  /** Per-request provider override ("azure" | "ollama"). */
   provider?: string;
   /** Per-request model/deployment override (from Settings). Falls back to env. */
   model?: string;
   /** Aborts the upstream provider fetch when the client disconnects (req.signal). */
   signal?: AbortSignal;
-}
-
-/** User-provided key wins; otherwise the env fallback. Friendly error if neither. */
-export function resolveGeminiKey(override?: string): string {
-  const key = override || process.env.GEMINI_API_KEY;
-  if (!key) {
-    throw new Error(
-      "No Gemini API key. Add your own key with the key button (top-right), or set GEMINI_API_KEY.",
-    );
-  }
-  return key;
 }
 
 export interface LLMProvider {
@@ -47,10 +31,9 @@ export interface LLMProvider {
   stream(messages: ChatMessage[], opts?: ChatOptions): AsyncGenerator<string>;
 }
 
-/** Deep-optional shape of a streaming chunk across all three providers. */
+/** Deep-optional shape of a streaming chunk across the providers. */
 interface StreamChunk {
   choices?: { delta?: { content?: string } }[]; // Azure / OpenAI
-  candidates?: { content?: { parts?: { text?: string }[] } }[]; // Gemini
   message?: { content?: string }; // Ollama
   done?: boolean; // Ollama
 }
@@ -103,73 +86,6 @@ class AzureOpenAIProvider implements LLMProvider {
     });
     if (!res.ok || !res.body) throw new Error(`Azure OpenAI ${res.status}: ${await res.text()}`);
     yield* sse(res, (j) => j.choices?.[0]?.delta?.content ?? "");
-  }
-}
-
-// ── Google Gemini ────────────────────────────────────────────────────
-class GeminiProvider implements LLMProvider {
-  readonly name = "gemini";
-
-  async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
-    const apiKey = resolveGeminiKey(opts.apiKey);
-    const model = opts.model?.trim() || process.env.GEMINI_MODEL || "gemini-2.0-flash";
-
-    // Gemini splits the system prompt out and uses "user"/"model" roles.
-    const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-    const contents = messages
-      .filter((m) => m.role !== "system")
-      .map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const res = await fetchWithRetry(url, {
-      method: "POST",
-      signal: opts.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents,
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        generationConfig: {
-          temperature: opts.temperature ?? 0.7,
-          ...(opts.json ? { responseMimeType: "application/json" } : {}),
-        },
-      }),
-    });
-    if (!res.ok) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
-    const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
-  }
-
-  async *stream(messages: ChatMessage[], opts: ChatOptions = {}): AsyncGenerator<string> {
-    const apiKey = resolveGeminiKey(opts.apiKey);
-    const model = opts.model?.trim() || process.env.GEMINI_MODEL || "gemini-2.0-flash";
-
-    const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
-    const contents = messages
-      .filter((m) => m.role !== "system")
-      .map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
-
-    // alt=sse gives clean `data:` lines instead of a streamed JSON array.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
-    const res = await fetchWithRetry(url, {
-      method: "POST",
-      signal: opts.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents,
-        ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        generationConfig: { temperature: opts.temperature ?? 0.7 },
-      }),
-    });
-    if (!res.ok || !res.body) throw new Error(`Gemini ${res.status}: ${await res.text()}`);
-    yield* sse(res, (j) =>
-      j.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "",
-    );
   }
 }
 
@@ -262,19 +178,17 @@ export async function fetchWithRetry(url: string, init: RequestInit, maxRetries 
   }
 }
 
-const KNOWN_PROVIDERS = new Set(["azure", "gemini", "ollama"]);
+const KNOWN_PROVIDERS = new Set(["azure", "ollama"]);
 const providerCache = new Map<string, LLMProvider>();
 
 function makeProvider(which: string): LLMProvider {
   switch (which) {
     case "azure":
       return new AzureOpenAIProvider();
-    case "gemini":
-      return new GeminiProvider();
     case "ollama":
       return new OllamaProvider();
     default:
-      throw new Error(`Unknown LLM provider "${which}". Use azure | gemini | ollama.`);
+      throw new Error(`Unknown LLM provider "${which}". Use azure | ollama.`);
   }
 }
 
@@ -327,7 +241,7 @@ async function* readLines(res: Response): AsyncGenerator<string> {
   if (buffer.length) yield buffer;
 }
 
-/** Parse Server-Sent Events (`data: {...}`) — Azure & Gemini. */
+/** Parse Server-Sent Events (`data: {...}`) — Azure. */
 async function* sse(res: Response, extract: (j: StreamChunk) => string): AsyncGenerator<string> {
   for await (const line of readLines(res)) {
     const t = line.trim();

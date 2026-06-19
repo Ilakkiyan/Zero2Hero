@@ -44,12 +44,12 @@ describe("POST /api/plan", () => {
     expect(res.status).toBe(400);
   });
 
-  it("forwards the provider and key headers to the LLM layer", async () => {
+  it("forwards the provider header to the LLM layer", async () => {
     chatJSON.mockResolvedValueOnce(validPlan);
-    await POST(req({ messages: sampleTranscript }, { "x-llm-provider": "azure", "x-gemini-key": "k-123" }));
+    await POST(req({ messages: sampleTranscript }, { "x-llm-provider": "azure" }));
     expect(chatJSON).toHaveBeenCalledWith(
       expect.any(Array),
-      expect.objectContaining({ provider: "azure", apiKey: "k-123" }),
+      expect.objectContaining({ provider: "azure" }),
     );
   });
 

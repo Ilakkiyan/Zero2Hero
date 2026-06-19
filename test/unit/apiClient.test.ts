@@ -1,24 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  apiHeaders,
-  clearGeminiKey,
-  getGeminiKey,
-  getProviderPref,
-  setGeminiKey,
-  setProviderPref,
-} from "@/lib/apiClient";
+import { apiHeaders, getProviderPref, setProviderPref } from "@/lib/apiClient";
 
 afterEach(() => localStorage.clear());
-
-describe("Gemini key storage", () => {
-  it("round-trips and clears the key", () => {
-    expect(getGeminiKey()).toBe("");
-    setGeminiKey("g-abc");
-    expect(getGeminiKey()).toBe("g-abc");
-    clearGeminiKey();
-    expect(getGeminiKey()).toBe("");
-  });
-});
 
 describe("provider preference", () => {
   it("defaults to local", () => {
@@ -50,10 +33,8 @@ describe("apiHeaders", () => {
     expect(apiHeaders()).toMatchObject({ "x-llm-provider": "azure" });
   });
 
-  it("omits x-gemini-key when no key is set, includes it when set", () => {
+  it("never sends a third-party key header", () => {
     setProviderPref("local");
     expect(apiHeaders()).not.toHaveProperty("x-gemini-key");
-    setGeminiKey("g-xyz");
-    expect(apiHeaders()).toMatchObject({ "x-gemini-key": "g-xyz" });
   });
 });

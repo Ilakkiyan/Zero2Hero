@@ -25,13 +25,6 @@ describe("ResearchModal", () => {
     expect(link).toHaveAttribute("href", "https://example.com/a");
   });
 
-  it("shows the cloud backend label when grounding is used", async () => {
-    const events = [{ type: "meta", backend: "cloud" }, { type: "plan", questions: ["q1"] }, { type: "done" }];
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(ndjsonResponse(events)));
-    render(<ResearchModal brief={validPlan.brief} onClose={() => {}} />);
-    expect(await screen.findByText(/cloud · Gemini/i)).toBeInTheDocument();
-  });
-
   it("surfaces an error response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(errorResponse("searx down", 500)));
     render(<ResearchModal brief={validPlan.brief} onClose={() => {}} />);

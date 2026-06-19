@@ -284,11 +284,15 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
               </p>
               <p className="mt-1 text-sm font-medium text-text">{move.title}</p>
               <p className="mt-0.5 text-xs text-muted">{move.rationale}</p>
+              <p className="mt-2 text-xs text-text">
+                <span className="font-semibold text-accent">Start this weekend:</span>{" "}
+                {move.firstStep}
+              </p>
               <button
                 onClick={() => setDraftFor(move.milestone)}
                 className="mt-2 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-bg transition-opacity hover:opacity-90"
               >
-                Draft it →
+                Draft this step →
               </button>
             </section>
           )}

@@ -5,6 +5,7 @@ import type { ChatMessage } from "@/lib/llm";
 import { readTokenStream } from "@/lib/streamClient";
 import { useSpeechToText } from "@/lib/useSpeechToText";
 import { apiHeaders } from "@/lib/apiClient";
+import { PERSONA_PRESETS } from "@/lib/personas";
 
 interface Props {
   messages: ChatMessage[];
@@ -21,6 +22,8 @@ interface Props {
   refining: boolean;
   /** Workspace-wide context injected into the interview for every project. */
   sharedContext: string;
+  /** Seed the shared context from a one-tap persona pick (first-run nudge). */
+  onSetSharedContext: (text: string) => void;
 }
 
 export default function InterviewPanel({
@@ -35,6 +38,7 @@ export default function InterviewPanel({
   onRefine,
   refining,
   sharedContext,
+  onSetSharedContext,
 }: Props) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,16 +112,39 @@ export default function InterviewPanel({
       <div className="flex items-center gap-2 border-b border-border px-5 py-4">
         <span className="h-2 w-2 rounded-full bg-accent" />
         <h2 className="text-sm font-medium text-text">Interview</h2>
-        <span className="ml-auto text-xs text-muted">de-risk the idea</span>
+        <span className="ml-auto text-xs text-muted">your honest cofounder</span>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-sm leading-relaxed text-muted">
-              Describe your idea in a sentence — even a vague one. I&apos;ll ask the questions that
-              matter and surface the assumptions you haven&apos;t spotted yet.
+              What&apos;s the idea you can&apos;t stop thinking about? Tell me in a sentence — even a
+              rough one. I&apos;m the cofounder who pushes back: I&apos;ll find the riskiest
+              assumption you haven&apos;t spotted, then turn it into a real plan you can start this
+              week.
             </p>
+            {!sharedContext.trim() && (
+              <div className="rounded-xl border border-border bg-surface p-3">
+                <p className="text-xs font-medium text-text">First, who are you?</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted">
+                  One tap tailors every question and plan to your situation. (Change it anytime via{" "}
+                  <span className="text-text">Context</span> in the header.)
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {PERSONA_PRESETS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => onSetSharedContext(p.text)}
+                      className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs text-text transition-opacity hover:opacity-80"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button
               type="button"
               onClick={onLoadSample}
