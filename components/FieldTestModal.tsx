@@ -93,6 +93,8 @@ export default function FieldTestModal({
           mode: "capture",
           ...payload(),
           method: design?.method ?? "Field test",
+          proveIf: design?.proveIf ?? "",
+          killIf: design?.killIf ?? "",
           result: text,
         }),
       });

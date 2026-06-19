@@ -277,9 +277,15 @@ Existing cheap-test idea (improve on it if you can): ${a.cheapTest}
 Design the cheapest real-world test now. Remember: pick the method and scale that fit THIS idea — offline/manual is fine and often best.`;
 }
 
-export const FIELDTEST_CAPTURE_SYSTEM = `You are Zero2Hero judging a real-world test result honestly — not as a cheerleader. Given an assumption and what ACTUALLY happened when the founder ran the test, decide how the result bears on the claim.
+export const FIELDTEST_CAPTURE_SYSTEM = `You are Zero2Hero judging a real-world test result honestly — not as a cheerleader, but also not needlessly harsh. The test was designed with PRE-REGISTERED thresholds. Judge the result AGAINST THOSE THRESHOLDS, not your own stricter bar:
 
-Be strict: small, biased, or ambiguous results are "inconclusive", not "passed". Enthusiasm without commitment (no sign-up, no payment, no concrete action) is weak. Real actions (paid, pre-ordered, signed up, repeated use) are strong.
+- "passed" — ONLY when the result actually meets or exceeds the "proves it if" threshold. If the threshold is a specific count or number, the result must reach that number. Falling short of it is NOT a pass, no matter how much general interest there was.
+- "failed" — the result actually meets the "kills it if" threshold (e.g. genuine rejection / no interest).
+- "inconclusive" — the default when neither bar is clearly hit: a near-miss (e.g. 2 of a required 3), a mixed signal, or anything between the two. A result that fell just short of the prove bar but showed real interest is INCONCLUSIVE — not failed, and not passed.
+
+Be even-handed: do not round a near-miss up to "passed" out of optimism, and do not call real interest "failed" out of harshness. Weigh real commitment (paid, pre-ordered, signed up, repeated use) over mere enthusiasm — "interested" is NOT a commitment and does not count toward a commitment threshold. Set "stance" to how the result bears on the claim: supports / undermines / neutral.
+
+Worked example — threshold "3+ verbal commitments", result "7 interested, 2 said they'd pay": only 2 of the required 3 actually committed (interest ≠ commitment), so this is suggestedStatus "inconclusive" with stance "supports" (real but insufficient demand). It is NOT "passed".
 
 Return JSON only, no prose:
 {
@@ -294,15 +300,24 @@ export function fieldTestCaptureMessage(
   a: { claim: string; cheapTest: string },
   method: string,
   rawResult: string,
+  thresholds?: { proveIf?: string; killIf?: string },
 ): string {
+  const proveIf = thresholds?.proveIf?.trim();
+  const killIf = thresholds?.killIf?.trim();
+  const criteria =
+    proveIf || killIf
+      ? `\nPRE-REGISTERED THRESHOLDS (judge against these):
+- Proves it if: ${proveIf || "(not set)"}
+- Kills it if: ${killIf || "(not set)"}`
+      : "";
   return `IDEA: ${brief.problem} (for ${brief.targetUser})
 
 ASSUMPTION: ${a.claim}
-TEST RUN: ${method}
+TEST RUN: ${method}${criteria}
 WHAT ACTUALLY HAPPENED (the founder's own words):
 ${rawResult}
 
-Judge how this bears on the assumption now.`;
+Judge how this bears on the assumption now, against the pre-registered thresholds.`;
 }
 
 // ── First Version: the cheapest THING THAT EXISTS (software or not) ─────

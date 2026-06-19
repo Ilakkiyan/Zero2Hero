@@ -57,6 +57,25 @@ describe("POST /api/fieldtest", () => {
     expect(data.result.suggestedStatus).toBe("passed");
   });
 
+  it("capture: forwards the pre-registered thresholds into the judgment", async () => {
+    chatJSON.mockResolvedValueOnce({ stance: "neutral", summary: "near miss", suggestedStatus: "inconclusive" });
+    await POST(
+      req({
+        mode: "capture",
+        brief,
+        assumption,
+        method: "Sign-up sheet",
+        proveIf: "3+ prepay",
+        killIf: "nobody interested",
+        result: "2 prepaid, lots of interest",
+      }),
+    );
+    const userMsg = chatJSON.mock.calls[0][0][1].content as string;
+    expect(userMsg).toContain("3+ prepay");
+    expect(userMsg).toContain("nobody interested");
+    expect(userMsg).toMatch(/pre-registered thresholds/i);
+  });
+
   it("capture: 400 when no result text is provided", async () => {
     const res = await POST(req({ mode: "capture", brief, assumption, result: "  " }));
     expect(res.status).toBe(400);

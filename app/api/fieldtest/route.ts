@@ -59,6 +59,10 @@ export async function POST(req: NextRequest) {
     if (body.mode === "capture") {
       const rawResult = typeof body.result === "string" ? body.result.trim() : "";
       const method = typeof body.method === "string" ? body.method : "Field test";
+      const thresholds = {
+        proveIf: typeof body.proveIf === "string" ? body.proveIf : "",
+        killIf: typeof body.killIf === "string" ? body.killIf : "",
+      };
       if (!rawResult) {
         return NextResponse.json({ error: "result required" }, { status: 400 });
       }
@@ -67,7 +71,7 @@ export async function POST(req: NextRequest) {
           { role: "system", content: FIELDTEST_CAPTURE_SYSTEM },
           {
             role: "user",
-            content: fieldTestCaptureMessage(brief.data, assumption.data, method, rawResult),
+            content: fieldTestCaptureMessage(brief.data, assumption.data, method, rawResult, thresholds),
           },
         ],
         opts,
