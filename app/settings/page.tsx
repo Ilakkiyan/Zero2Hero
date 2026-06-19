@@ -18,6 +18,13 @@ const MODEL_PLACEHOLDER: Record<string, string> = {
   azure: "your Azure deployment name",
 };
 
+// One-tap local model sizes. 7B is lighter/faster (good for trying it out on a
+// modest machine); 14B is higher quality (the default).
+const OLLAMA_SIZES: { model: string; label: string; hint: string }[] = [
+  { model: "qwen2.5:7b", label: "7B", hint: "lighter · ~4.7 GB · faster" },
+  { model: "qwen2.5:14b", label: "14B", hint: "better quality · ~9 GB · default" },
+];
+
 type CalState = "unknown" | "connected" | "disconnected";
 
 export default function SettingsPage() {
@@ -106,6 +113,28 @@ export default function SettingsPage() {
         title="Model"
         hint={`The model used for the ${provider === "local" ? "Local (Ollama)" : "Cloud (Azure)"} provider. Leave blank to use the server default.`}
       >
+        {server === "ollama" && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {OLLAMA_SIZES.map((s) => {
+              const active = model === s.model || (!model && s.model === "qwen2.5:14b");
+              return (
+                <button
+                  key={s.model}
+                  onClick={() => saveModel(s.model)}
+                  className={
+                    "flex flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors " +
+                    (active
+                      ? "border-accent bg-accent/10"
+                      : "border-border bg-surface-2 hover:border-accent/50")
+                  }
+                >
+                  <span className="text-sm font-medium text-text">qwen2.5 {s.label}</span>
+                  <span className="text-[10px] text-muted">{s.hint}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <input
             value={model}

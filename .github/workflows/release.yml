@@ -1,0 +1,60 @@
+name: Release
+
+# Build desktop installers for macOS, Windows, and Linux when a version tag is
+# pushed, and attach them to a GitHub Release people can download and try.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build Next.js + package installer
+        env:
+          # Unsigned builds — fine for a try-it-out release. Skips cert lookup.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: |
+          npm run build
+          npx electron-builder --publish never
+
+      - name: Attach installers to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          fail_on_unmatched_files: false
+          files: |
+            release/*.dmg
+            release/*.exe
+            release/*.AppImage
+          body: |
+            **Zero2Hero — the honest AI cofounder for student builders.**
+
+            Turn an idea into a real plan, pressure-test it with real-world evidence, and get an honest go/no-go verdict before you sink your time in.
+
+            ### Try it (desktop)
+            1. Download the installer for your OS below: `.dmg` (macOS), `.exe` (Windows), `.AppImage` (Linux).
+            2. The builds are **unsigned**, so your OS may warn:
+               - **macOS:** right-click the app → **Open** → **Open**.
+               - **Windows:** "More info" → **Run anyway**.
+            3. **Local model (free, private):** install [Ollama](https://ollama.com/download), then pull a model — `ollama pull qwen2.5:14b` (better) or `ollama pull qwen2.5:7b` (lighter/faster). Pick the size under **Settings → Model**.
+            4. Prefer cloud? Flip the header toggle to **☁ Cloud** and add your Azure OpenAI details.
+
+            ### Or run from source
+            `npm install && npm run dev` → http://localhost:3000  (see the README for details)

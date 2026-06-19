@@ -20,7 +20,7 @@ Zero2Hero runs on a local model via [Ollama](https://ollama.com/download) by def
 #    macOS:  https://ollama.com/download/mac
 #    Windows https://ollama.com/download/windows
 #    Linux:  curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:14b        # 2. pull the model
+ollama pull qwen2.5:14b        # 2. pull the model (or `qwen2.5:7b` — lighter/faster on a modest machine)
 
 npm install
 cp .env.example .env.local    # defaults to LLM_PROVIDER=ollama
