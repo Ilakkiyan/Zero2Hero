@@ -2,6 +2,8 @@
   "name": "zero2hero",
   "version": "1.0.0",
   "private": true,
+  "description": "The honest AI cofounder for student builders — turn an idea into a real plan, pressure-test it with real evidence, and get an honest go/no-go verdict.",
+  "author": "Zero2Hero",
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
