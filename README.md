@@ -1,11 +1,13 @@
 # Zero2Hero
 
-**The AI cofounder for solo first-time founders.**
+**The honest AI cofounder for student builders.**
 
-You've got an idea you can't stop thinking about — and no cofounder to tell you the truth about it. Zero2Hero interviews you, hunts the assumption most likely to kill it, pulls real web evidence to prove or disprove it, and turns what survives into a realistic execution plan with a first step you can start this weekend.
+You've got an idea — a class project, a hackathon build, a startup — and you're about to sink your time into it without knowing if it's worth it. Zero2Hero interviews you, hunts the assumption most likely to kill it, helps you prove or kill it with **real-world evidence**, and gives you an **honest go/no-go verdict** — one that won't tell you to build something that hasn't earned it.
 
-*Built for the USAII Global AI Hackathon 2026 — Direction B: Zero-to-One Builder.*
-Vague idea → de-risked brief → living execution plan → first prototype.
+A cofounder that tells you the truth, not what you want to hear — so you learn to validate like a real builder before you commit.
+
+*Built for the USAII Global AI Hackathon 2026 (College track — AI for Life & Work).*
+Vague idea → de-risked brief → real evidence → first version → honest verdict.
 
 > **First time here?** Follow [docs/SETUP.md](docs/SETUP.md) for step-by-step setup. TL;DR below.
 

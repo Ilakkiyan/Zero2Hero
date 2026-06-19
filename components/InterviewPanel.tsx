@@ -119,10 +119,10 @@ export default function InterviewPanel({
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-sm leading-relaxed text-muted">
-              What&apos;s the idea you can&apos;t stop thinking about? Tell me in a sentence — even a
-              rough one. I&apos;m the cofounder who pushes back: I&apos;ll find the riskiest
-              assumption you haven&apos;t spotted, then turn it into a real plan you can start this
-              week.
+              Got a class project, a hackathon idea, or a startup you want to build? Tell me in a
+              sentence — even a rough one. I&apos;m the cofounder who pushes back: I&apos;ll find the
+              riskiest assumption you haven&apos;t spotted, help you prove or kill it with real
+              evidence, and give you an honest verdict before you sink your time in.
             </p>
             {!sharedContext.trim() && (
               <div className="rounded-xl border border-border bg-surface p-3">

@@ -47,9 +47,9 @@ describe("InterviewPanel", () => {
         sharedContext="" onSetSharedContext={onSetSharedContext}
       />,
     );
-    await userEvent.click(screen.getByRole("button", { name: /solo first-time founder/i }));
+    await userEvent.click(screen.getByRole("button", { name: /student with a startup idea/i }));
     expect(onSetSharedContext).toHaveBeenCalledOnce();
-    expect(onSetSharedContext.mock.calls[0][0]).toMatch(/solo first-time founder/i);
+    expect(onSetSharedContext.mock.calls[0][0]).toMatch(/student/i);
   });
 
   it("hides the persona nudge once context is set", () => {

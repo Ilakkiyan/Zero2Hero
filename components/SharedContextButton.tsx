@@ -73,7 +73,7 @@ export default function SharedContextButton({ value, onSave }: Props) {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={5}
-              placeholder="e.g. Solo non-technical founder, $2k budget, want a paying customer within 6 weeks…"
+              placeholder="e.g. CS undergrad, building solo between classes, ~$200 budget, want proof a few real people care before I commit my semester…"
               className="mt-3 w-full resize-y rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
             />
 

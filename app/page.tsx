@@ -226,7 +226,7 @@ export default function Home() {
     <main className="flex h-screen flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <h1 className="text-base font-semibold tracking-tight text-text">Zero2Hero</h1>
-        <span className="text-sm text-muted">your AI cofounder · idea → execution plan</span>
+        <span className="text-sm text-muted">the honest AI cofounder for student builders · idea → evidence → verdict</span>
         <div className="ml-auto flex items-center gap-2">
           <SharedContextButton
             value={ws.sharedContext}
