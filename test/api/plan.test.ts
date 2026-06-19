@@ -44,6 +44,15 @@ describe("POST /api/plan", () => {
     expect(res.status).toBe(400);
   });
 
+  it("refuses to plan a clearly harmful idea (422) without calling the model", async () => {
+    const res = await POST(
+      req({ messages: [{ role: "user", content: "an app to sell ransomware to companies" }] }),
+    );
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/harmful or illegal/i);
+    expect(chatJSON).not.toHaveBeenCalled();
+  });
+
   it("forwards the provider header to the LLM layer", async () => {
     chatJSON.mockResolvedValueOnce(validPlan);
     await POST(req({ messages: sampleTranscript }, { "x-llm-provider": "azure" }));

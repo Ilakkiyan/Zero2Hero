@@ -286,6 +286,11 @@ export default function Home() {
           />
         </section>
       </div>
+
+      <footer className="shrink-0 border-t border-border px-6 py-1.5 text-center text-[11px] leading-snug text-muted">
+        Zero2Hero gives AI-generated guidance to help you think — not professional, legal, or
+        financial advice. Validate decisions with real evidence and your own judgment.
+      </footer>
     </main>
   );
 }

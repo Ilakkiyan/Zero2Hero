@@ -3,6 +3,7 @@ import { chatJSON, type ChatMessage } from "@/lib/llm";
 import { PLAN_SYSTEM, sharedContextMessages } from "@/lib/prompts";
 import { PlanSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
+import { screenForHarm, SAFETY_REFUSAL } from "@/lib/safety";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,12 @@ export async function POST(req: NextRequest) {
     const { messages } = body;
     if (!Array.isArray(messages)) {
       return NextResponse.json({ error: "messages[] required" }, { status: 400 });
+    }
+
+    // Safety backstop: don't build a plan for a clearly harmful/illegal idea.
+    const harmful = messages.find((m) => m.role === "user" && screenForHarm(m.content).blocked);
+    if (harmful) {
+      return NextResponse.json({ error: SAFETY_REFUSAL }, { status: 422 });
     }
 
     const raw = await chatJSON(
