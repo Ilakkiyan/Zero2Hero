@@ -63,5 +63,16 @@ export function parseFieldTestDesign(raw: unknown): FieldTestDesign | null {
 /** Validate raw model JSON into a captured result, or null if it doesn't fit. */
 export function parseFieldTestResult(raw: unknown): FieldTestResult | null {
   const r = FieldTestResultSchema.safeParse(raw);
-  return r.success ? r.data : null;
+  if (!r.success) return null;
+  const result = r.data;
+  // Reconcile a self-contradictory read from a weaker model: a result that
+  // supports the claim can't also mean "failed", and one that undermines it
+  // can't mean "passed". Align the status to the (clearer) stance signal so a
+  // described success never gets applied as a confidence-dropping failure.
+  if (result.stance === "supports" && result.suggestedStatus === "failed") {
+    result.suggestedStatus = "passed";
+  } else if (result.stance === "undermines" && result.suggestedStatus === "passed") {
+    result.suggestedStatus = "failed";
+  }
+  return result;
 }

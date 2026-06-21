@@ -35,17 +35,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ provider: want, local: false, ready: true });
   }
 
-  const model = process.env.OLLAMA_MODEL || "qwen2.5:7b";
+  // An explicit model choice (the Settings override, passed as ?model=) must be
+  // installed exactly; with no choice we report whichever matching model is
+  // actually pulled, so the UI autodetects the installed one.
+  const requested = new URL(req.url).searchParams.get("model")?.trim() || "";
+  const wantModel = requested || process.env.OLLAMA_MODEL || "qwen2.5:7b";
   const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
   try {
     const res = await fetch(`${base}/api/tags`, { cache: "no-store" });
     if (!res.ok) {
-      return NextResponse.json({ provider: "ollama", local: true, ready: false, running: false, model });
+      return NextResponse.json({ provider: "ollama", local: true, ready: false, running: false, model: wantModel });
     }
     const data = (await res.json()) as { models?: { name: string }[] };
     const names = (data.models ?? []).map((m) => m.name);
-    const base0 = model.split(":")[0];
-    const modelPulled = names.some((n) => n === model || n.split(":")[0] === base0);
+    const baseOf = (m: string) => m.split(":")[0];
+    const exact = names.includes(wantModel);
+    const sameBase = names.find((n) => baseOf(n) === baseOf(wantModel));
+    const model = exact ? wantModel : requested ? wantModel : sameBase ?? wantModel;
+    const modelPulled = exact || (!requested && !!sameBase);
     return NextResponse.json({
       provider: "ollama",
       local: true,
@@ -56,6 +63,6 @@ export async function GET(req: NextRequest) {
       models: names,
     });
   } catch {
-    return NextResponse.json({ provider: "ollama", local: true, ready: false, running: false, model });
+    return NextResponse.json({ provider: "ollama", local: true, ready: false, running: false, model: wantModel });
   }
 }

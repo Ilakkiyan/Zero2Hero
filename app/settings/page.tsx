@@ -209,12 +209,23 @@ export default function SettingsPage() {
       {/* Web research */}
       <Section
         title="Web research"
-        hint="Research runs on a private, local SearxNG search engine — no API key, no third-party services."
+        hint="Research works out of the box — no setup or API key. Add a private SearxNG for fully local search."
       >
         <p className="text-xs leading-relaxed text-muted">
-          The desktop app starts SearxNG automatically (it needs Docker running). Nothing to
-          configure here.
+          By default, research searches the web via <span className="text-text">DuckDuckGo</span>{" "}
+          (keyless, nothing to install). For fully private, self-hosted search, run a local{" "}
+          <span className="text-text">SearxNG</span> and the app will prefer it automatically:
         </p>
+        <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-2 p-3 text-[11px] leading-relaxed text-text">{`# needs Docker installed and running
+docker compose -f docker-compose.searxng.yml up -d`}</pre>
+        <ul className="mt-2 space-y-1 text-xs leading-relaxed text-muted">
+          <li>• The desktop app runs this for you on launch if Docker is available.</li>
+          <li>
+            • It listens on <Cmd>http://localhost:8080</Cmd>; point elsewhere with the{" "}
+            <Cmd>SEARXNG_URL</Cmd> env var.
+          </li>
+          <li>• If SearxNG isn&apos;t reachable, research silently falls back to DuckDuckGo.</li>
+        </ul>
       </Section>
 
       {/* Google Calendar */}
@@ -270,6 +281,14 @@ export default function SettingsPage() {
 
       {showCalGuide && <CalendarSetupModal onClose={() => setShowCalGuide(false)} />}
     </main>
+  );
+}
+
+function Cmd({ children }: { children: string }) {
+  return (
+    <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-text">
+      {children}
+    </code>
   );
 }
 

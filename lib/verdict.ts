@@ -21,12 +21,18 @@ export interface Verdict {
   action: string;
 }
 
-/** True if a passed assumption is backed by supporting real-world evidence. */
+/**
+ * True if a passed assumption is backed by a real-world (field) test. We accept
+ * any field evidence that isn't actively undermining — a smaller local model
+ * sometimes labels a genuine win "neutral", so keying strictly on "supports"
+ * would deny Build even after the user ran and passed the test. A field test
+ * that undermines the claim never counts.
+ */
 function hasPrimaryProof(plan: Plan): boolean {
   return plan.assumptions.some(
     (a) =>
       a.status === "passed" &&
-      (a.evidence ?? []).some((e) => e.kind === "field" && e.stance === "supports"),
+      (a.evidence ?? []).some((e) => e.kind === "field" && e.stance !== "undermines"),
   );
 }
 

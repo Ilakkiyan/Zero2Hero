@@ -23,7 +23,10 @@ export function summarizeValidation(plan: Plan): ValidationSummary {
     const weight = riskWeight[a.risk];
     if (a.status === "passed") score += weight * 6;
     else if (a.status === "failed") score -= weight * 8;
-    else if (a.status === "inconclusive") score -= weight * 4;
+    // Inconclusive = "no clear answer yet", not a failure. A modest dip, so a
+    // real-world near-miss that still showed interest doesn't tank confidence
+    // (the evidence term below still differentiates supports vs. undermines).
+    else if (a.status === "inconclusive") score -= weight * 2;
     else if (a.status === "running") score += weight * 1;
   }
 

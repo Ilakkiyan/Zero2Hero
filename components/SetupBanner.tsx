@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { isAzureConfigured, type ProviderPref } from "@/lib/apiClient";
+import {
+  getModelOverride,
+  isAzureConfigured,
+  setModelOverride,
+  type ProviderPref,
+} from "@/lib/apiClient";
 
 interface Health {
   provider: string;
@@ -35,8 +40,17 @@ export default function SetupBanner({ provider }: { provider: ProviderPref }) {
     setHealth(null);
     setClientAzure(isAzureConfigured());
     try {
-      const res = await fetch(`/api/health?provider=${backend}`, { cache: "no-store" });
-      setHealth(await res.json());
+      // Pass the user's selected model so health validates/reports the right one.
+      const override = backend === "ollama" ? getModelOverride("ollama") : "";
+      const url = `/api/health?provider=${backend}${override ? `&model=${encodeURIComponent(override)}` : ""}`;
+      const res = await fetch(url, { cache: "no-store" });
+      const data = (await res.json()) as Health;
+      setHealth(data);
+      // Autodetect: if the user hasn't chosen a model, adopt whichever one is
+      // actually installed so the label here and generation stay in sync.
+      if (backend === "ollama" && !override && data.modelPulled && data.model) {
+        setModelOverride("ollama", data.model);
+      }
     } catch {
       setHealth(null);
     } finally {
@@ -46,6 +60,14 @@ export default function SetupBanner({ provider }: { provider: ProviderPref }) {
 
   useEffect(() => {
     check();
+  }, [check]);
+
+  // Re-check when the window regains focus — catches a model switched in Settings
+  // or freshly pulled in a terminal without needing a restart.
+  useEffect(() => {
+    const onFocus = () => check();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [check]);
 
   // Cloud is ready if the server has env creds OR the user configured it in Settings.

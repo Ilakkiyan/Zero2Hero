@@ -52,6 +52,31 @@ describe("verdict", () => {
     expect(v.call).toBe("build");
   });
 
+  it("counts a passed assumption with a neutral-labelled field test as proof", () => {
+    // A weaker model sometimes labels a genuine win "neutral"; a passed assumption
+    // backed by a real field test still earns Build (only "undermines" wouldn't).
+    // Second pass clears the confidence bar so this isolates the proof gate.
+    const fieldNeutral: Evidence = { ...fieldSupport, stance: "neutral" };
+    const v = verdict(
+      planWith([
+        { risk: "high", status: "passed", evidence: [fieldNeutral] },
+        { risk: "med", status: "passed" },
+      ]),
+    );
+    expect(v.call).toBe("build");
+  });
+
+  it("does NOT count an undermining field test as proof, even when confident", () => {
+    const fieldUndermines: Evidence = { ...fieldSupport, stance: "undermines" };
+    const v = verdict(
+      planWith([
+        { risk: "high", status: "passed", evidence: [fieldUndermines] },
+        { risk: "med", status: "passed" },
+      ]),
+    );
+    expect(v.call).toBe("keep-testing");
+  });
+
   it("withholds the green light when confident but lacking primary proof", () => {
     // Two high-risk passed (confidence clears 75) but on status only — no field
     // evidence — so the verdict must NOT call "build".

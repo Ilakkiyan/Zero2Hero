@@ -49,4 +49,31 @@ describe("parseFieldTestResult", () => {
   it("rejects an invalid stance", () => {
     expect(parseFieldTestResult({ stance: "maybe", summary: "x" })).toBeNull();
   });
+
+  it("reconciles a supporting result that the model wrongly marked failed", () => {
+    const r = parseFieldTestResult({
+      stance: "supports",
+      summary: "8 of 10 prepaid",
+      suggestedStatus: "failed",
+    });
+    expect(r?.suggestedStatus).toBe("passed"); // a success can't be a failure
+  });
+
+  it("reconciles an undermining result the model wrongly marked passed", () => {
+    const r = parseFieldTestResult({
+      stance: "undermines",
+      summary: "nobody was interested",
+      suggestedStatus: "passed",
+    });
+    expect(r?.suggestedStatus).toBe("failed");
+  });
+
+  it("leaves a consistent supporting + inconclusive near-miss untouched", () => {
+    const r = parseFieldTestResult({
+      stance: "supports",
+      summary: "2 of a required 3 committed",
+      suggestedStatus: "inconclusive",
+    });
+    expect(r?.suggestedStatus).toBe("inconclusive");
+  });
 });
