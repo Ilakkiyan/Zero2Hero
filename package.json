@@ -1,6 +1,6 @@
 {
   "name": "zero2hero",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "The honest AI cofounder for student builders — turn an idea into a real plan, pressure-test it with real evidence, and get an honest go/no-go verdict.",
   "author": "Zero2Hero",
@@ -62,10 +62,8 @@
       "package.json",
       "next.config.mjs"
     ],
-    "asarUnpack": [
-      "node_modules/next/**/*",
-      ".next/**/*"
-    ],
+    "_comment_asar": "asar OFF on purpose: `next start` is spawned with cwd=app root, and a path inside app.asar is a file, not a real dir — the server can't launch from it and the window goes blank. Shipping unpacked keeps the build simple and reliable.",
+    "asar": false,
     "extraResources": [
       "docker-compose.searxng.yml",
       "searxng/**/*"

@@ -1,14 +1,41 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import PitchPage from "@/app/pitch/page";
 import { validPlan } from "@/test/fixtures/plan";
 
+/** Legacy single-session shape (pre-workspace builds). */
 function seedPlan(plan: unknown) {
   localStorage.setItem("z2h_state", JSON.stringify({ messages: [], plan, readyToPlan: true }));
 }
 
+/** Current shape: a multi-project workspace with `plan` on the active project. */
+function seedWorkspace(plan: unknown, { active = true }: { active?: boolean } = {}) {
+  const target = { id: "p2", name: "Idea", createdAt: "", messages: [], readyToPlan: true, plan, history: [] };
+  const other = { id: "p1", name: "Other", createdAt: "", messages: [], readyToPlan: false, plan: null, history: [] };
+  localStorage.setItem(
+    "z2h_workspace",
+    JSON.stringify({ projects: [other, target], activeId: active ? "p2" : "p1", sharedContext: "" }),
+  );
+}
+
+beforeEach(() => localStorage.clear());
+
 describe("Pitch page", () => {
   it("invites the user to build a plan when none is stored", async () => {
+    render(<PitchPage />);
+    expect(await screen.findByText(/no plan yet/i)).toBeInTheDocument();
+  });
+
+  it("renders the active project's plan from the workspace", async () => {
+    seedWorkspace(validPlan);
+    render(<PitchPage />);
+    expect(await screen.findByText("62%")).toBeInTheDocument();
+    expect(screen.getByText(validPlan.brief.riskiestAssumption)).toBeInTheDocument();
+    expect(screen.getByText(validPlan.milestones[0].goal)).toBeInTheDocument();
+  });
+
+  it("shows no plan when the active project has none, even if another project does", async () => {
+    seedWorkspace(validPlan, { active: false });
     render(<PitchPage />);
     expect(await screen.findByText(/no plan yet/i)).toBeInTheDocument();
   });

@@ -13,8 +13,9 @@ import { summarizeValidation } from "@/lib/validation";
 import ConfidenceTimeline from "@/components/ConfidenceTimeline";
 
 /**
- * Print-ready one-pager. Reads the persisted plan from localStorage (same
- * z2h_state key page.tsx writes) and renders a clean editorial layout. Always
+ * Print-ready one-pager. Reads the active project's plan from the persisted
+ * workspace (the z2h_workspace key page.tsx writes), falling back to the legacy
+ * single-session z2h_state shape, and renders a clean editorial layout. Always
  * light (wrapped in data-theme="light") so it looks right on paper / PDF
  * regardless of the app's theme. "Print / Save as PDF" uses the browser's
  * native print → no PDF dependency.
@@ -34,6 +35,40 @@ const statusLabel: Record<AssumptionStatus, string> = {
   inconclusive: "Inconclusive",
 };
 
+const WS_KEY = "z2h_workspace";
+const LEGACY_KEY = "z2h_state";
+
+/**
+ * Pull the active project's plan + history out of the persisted workspace. Falls
+ * back to the pre-workspace single-session shape so plans saved by older builds
+ * still export. Mirrors how page.tsx hydrates so the pitch matches what's on screen.
+ */
+function loadActivePlan(): { plan: Plan | null; history: PlanEvent[] } {
+  const fromState = (s: Record<string, unknown> | undefined) => {
+    const plan = PlanSchema.safeParse(s?.plan);
+    const history = PlanEventSchema.array().safeParse(s?.history);
+    return {
+      plan: plan.success ? plan.data : null,
+      history: history.success ? history.data : [],
+    };
+  };
+
+  const wsRaw = localStorage.getItem(WS_KEY);
+  if (wsRaw) {
+    const parsed = JSON.parse(wsRaw) as Record<string, unknown>;
+    const projects = Array.isArray(parsed.projects)
+      ? (parsed.projects as Record<string, unknown>[])
+      : [];
+    const active = projects.find((p) => p?.id === parsed.activeId) ?? projects[0];
+    if (active) return fromState(active);
+  }
+
+  const legacyRaw = localStorage.getItem(LEGACY_KEY);
+  if (legacyRaw) return fromState(JSON.parse(legacyRaw) as Record<string, unknown>);
+
+  return { plan: null, history: [] };
+}
+
 export default function PitchPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [history, setHistory] = useState<PlanEvent[]>([]);
@@ -41,14 +76,9 @@ export default function PitchPage() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("z2h_state");
-      if (raw) {
-        const state = JSON.parse(raw);
-        const parsed = PlanSchema.safeParse(state.plan);
-        if (parsed.success) setPlan(parsed.data);
-        const hist = PlanEventSchema.array().safeParse(state.history);
-        if (hist.success) setHistory(hist.data);
-      }
+      const loaded = loadActivePlan();
+      if (loaded.plan) setPlan(loaded.plan);
+      setHistory(loaded.history);
     } catch {
       /* ignore */
     }
