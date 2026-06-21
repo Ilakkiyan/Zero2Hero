@@ -15,6 +15,8 @@ interface Props {
   onGeneratePlan: () => void;
   onLoadSample: () => void;
   planning: boolean;
+  /** A failed/timed-out plan or replan request, surfaced so it never silently stalls. */
+  planError?: string | null;
   /** True once a plan exists — chat then refines the plan instead of interviewing. */
   hasPlan: boolean;
   /** Revise the existing plan from a chat message; resolves true on success. */
@@ -34,6 +36,7 @@ export default function InterviewPanel({
   onGeneratePlan,
   onLoadSample,
   planning,
+  planError,
   hasPlan,
   onRefine,
   refining,
@@ -175,6 +178,7 @@ export default function InterviewPanel({
             <p className="text-sm text-muted">{refining ? "Revising the plan…" : "Thinking…"}</p>
           )}
         {error && <p className="text-sm text-risk-high">{error}</p>}
+        {planError && <p className="text-sm text-risk-high">{planError}</p>}
       </div>
 
       {readyToPlan && !hasPlan && (
@@ -184,7 +188,7 @@ export default function InterviewPanel({
             disabled={planning}
             className="w-full rounded-xl bg-accent py-2.5 text-sm font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {planning ? "Building plan…" : "Generate execution plan →"}
+            {planning ? "Building plan…" : planError ? "Try again →" : "Generate execution plan →"}
           </button>
         </div>
       )}

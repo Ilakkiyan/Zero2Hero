@@ -39,21 +39,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const raw = await chatJSON(
-      [
-        { role: "system", content: PLAN_SYSTEM },
-        ...sharedContextMessages(body.sharedContext),
-        ...messages,
-        { role: "user", content: "Produce the execution plan JSON now." },
-      ],
-      { ...llm, signal: req.signal },
-    );
+    const planMessages: ChatMessage[] = [
+      { role: "system", content: PLAN_SYSTEM },
+      ...sharedContextMessages(body.sharedContext),
+      ...messages,
+      { role: "user", content: "Produce the execution plan JSON now." },
+    ];
 
-    const parsed = PlanSchema.safeParse(raw);
-    if (!parsed.success) {
-      // Surface the validation issue so we can tighten the prompt during the build.
+    // Smaller local models sometimes return malformed or incomplete JSON, which
+    // looked like a silent stall ("plan never populated"). Retry once on bad
+    // output before giving up; a real provider/network error surfaces immediately.
+    let parsed: ReturnType<typeof PlanSchema.safeParse> | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let raw: unknown;
+      try {
+        raw = await chatJSON(planMessages, { ...llm, signal: req.signal });
+      } catch (e) {
+        if (e instanceof SyntaxError && attempt === 0) continue; // malformed JSON — retry
+        throw e; // provider/network error — surface as 500
+      }
+      parsed = PlanSchema.safeParse(raw);
+      if (parsed.success) break;
+    }
+
+    if (!parsed || !parsed.success) {
       return NextResponse.json(
-        { error: "Plan did not match schema", issues: parsed.error.issues },
+        { error: "Plan did not match schema", issues: parsed?.error.issues ?? [] },
         { status: 422 },
       );
     }

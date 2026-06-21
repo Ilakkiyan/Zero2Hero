@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chatJSON, llmOptionsFromHeaders } from "@/lib/llm";
+import { chatJSON, llmOptionsFromHeaders, type ChatMessage } from "@/lib/llm";
 import { REPLAN_SYSTEM, replanUserMessage, sharedContextMessages } from "@/lib/prompts";
 import { PlanSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
@@ -34,19 +34,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "note required" }, { status: 400 });
     }
 
-    const raw = await chatJSON(
-      [
-        { role: "system", content: REPLAN_SYSTEM },
-        ...sharedContextMessages(reqBody.sharedContext),
-        { role: "user", content: replanUserMessage(currentPlan.data, note) },
-      ],
-      { ...llm, signal: req.signal },
-    );
+    const replanMessages: ChatMessage[] = [
+      { role: "system", content: REPLAN_SYSTEM },
+      ...sharedContextMessages(reqBody.sharedContext),
+      { role: "user", content: replanUserMessage(currentPlan.data, note) },
+    ];
 
-    const revised = PlanSchema.safeParse(raw);
-    if (!revised.success) {
+    // Retry once on malformed/invalid output (smaller local models stumble on
+    // strict JSON); a real provider error surfaces immediately as 500.
+    let revised: ReturnType<typeof PlanSchema.safeParse> | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let raw: unknown;
+      try {
+        raw = await chatJSON(replanMessages, { ...llm, signal: req.signal });
+      } catch (e) {
+        if (e instanceof SyntaxError && attempt === 0) continue;
+        throw e;
+      }
+      revised = PlanSchema.safeParse(raw);
+      if (revised.success) break;
+    }
+
+    if (!revised || !revised.success) {
       return NextResponse.json(
-        { error: "Revised plan did not match schema", issues: revised.error.issues },
+        { error: "Revised plan did not match schema", issues: revised?.error.issues ?? [] },
         { status: 422 },
       );
     }

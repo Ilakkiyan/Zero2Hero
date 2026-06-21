@@ -39,6 +39,15 @@ describe("POST /api/plan", () => {
     expect(Array.isArray(data.issues)).toBe(true);
   });
 
+  it("retries once and succeeds when the first plan JSON is invalid", async () => {
+    chatJSON
+      .mockResolvedValueOnce({ brief: { problem: "incomplete" } }) // invalid first try
+      .mockResolvedValueOnce(validPlan); // valid on retry
+    const res = await POST(req({ messages: sampleTranscript }));
+    expect(res.status).toBe(200);
+    expect(chatJSON).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects a request without messages[] with 400", async () => {
     const res = await POST(req({ notMessages: true }));
     expect(res.status).toBe(400);

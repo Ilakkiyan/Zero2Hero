@@ -69,10 +69,33 @@ function parseWorkspace(obj: unknown): Workspace | null {
   return { projects, activeId, sharedContext };
 }
 
+/**
+ * fetch with a hard timeout so a hung model never leaves the UI stuck on
+ * "Building plan…". Aborts after `ms` and surfaces as an error the caller shows.
+ */
+async function fetchWithTimeout(url: string, init: RequestInit, ms = 180_000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Friendly, actionable message for a failed plan/replan request. */
+function planRequestError(err: unknown): string {
+  if (err instanceof DOMException && err.name === "AbortError") {
+    return "The model took too long to respond. Try again, or pick a lighter/faster model in Settings.";
+  }
+  return "Couldn't reach the model. Make sure it's running (or switch provider in Settings), then try again.";
+}
+
 export default function Home() {
   const [ws, setWs] = useState<Workspace>(() => emptyWorkspace());
   const [planning, setPlanning] = useState(false);
   const [replanning, setReplanning] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [providerPref, setProviderPref] = useState<ProviderPref>("local");
 
@@ -154,14 +177,15 @@ export default function Home() {
   async function generatePlan() {
     const targetId = ws.activeId;
     setPlanning(true);
+    setPlanError(null);
     try {
-      const res = await fetch("/api/plan", {
+      const res = await fetchWithTimeout("/api/plan", {
         method: "POST",
         headers: apiHeaders(),
         body: JSON.stringify({ messages: project.messages, sharedContext }),
       });
-      const data = await res.json();
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.plan) {
         // A fresh plan starts a fresh trajectory.
         setWs((w) =>
           updateProject(w, targetId, {
@@ -169,7 +193,11 @@ export default function Home() {
             history: [makeEvent("created", summarizeValidation(data.plan).confidence, "Plan generated")],
           }),
         );
-      } else console.error("Plan error:", data);
+      } else {
+        setPlanError(data.error || "The plan didn't come back valid. Try generating again.");
+      }
+    } catch (err) {
+      setPlanError(planRequestError(err));
     } finally {
       setPlanning(false);
     }
@@ -180,14 +208,15 @@ export default function Home() {
     if (!target.plan) return false;
     const targetId = ws.activeId;
     setReplanning(true);
+    setPlanError(null);
     try {
-      const res = await fetch("/api/replan", {
+      const res = await fetchWithTimeout("/api/replan", {
         method: "POST",
         headers: apiHeaders(),
         body: JSON.stringify({ plan: target.plan, note, sharedContext }),
       });
-      const data = await res.json();
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.plan) {
         setWs((w) => {
           const p = w.projects.find((x) => x.id === targetId);
           const history = p
@@ -200,10 +229,10 @@ export default function Home() {
         });
         return true;
       }
-      console.error("Replan error:", data);
+      setPlanError(data.error || "Couldn't revise the plan. Try again.");
       return false;
     } catch (err) {
-      console.error("Replan error:", err);
+      setPlanError(planRequestError(err));
       return false;
     } finally {
       setReplanning(false);
@@ -268,6 +297,7 @@ export default function Home() {
             onGeneratePlan={generatePlan}
             onLoadSample={loadSampleIdea}
             planning={planning}
+            planError={planError}
             hasPlan={!!project.plan}
             onRefine={replan}
             refining={replanning}
