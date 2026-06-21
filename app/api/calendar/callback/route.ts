@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { exchangeCode } from "@/lib/google";
+import { NextRequest, NextResponse } from "next/server";
+import { CONFIG_COOKIE, exchangeCode, parseConfigCookie } from "@/lib/google";
 
 export const runtime = "nodejs";
 
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
  * an httpOnly cookie (never exposed to the browser), and returns to the app
  * with ?gcal=connected so the client can auto-sync.
  */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const origin = url.origin;
   const code = url.searchParams.get("code");
@@ -19,7 +19,8 @@ export async function GET(req: Request) {
   }
 
   try {
-    const { accessToken, expiresIn } = await exchangeCode(code);
+    const override = parseConfigCookie(req.cookies.get(CONFIG_COOKIE)?.value);
+    const { accessToken, expiresIn } = await exchangeCode(code, override);
     const res = NextResponse.redirect(`${origin}/?gcal=connected`);
     res.cookies.set("gcal_token", accessToken, {
       httpOnly: true,

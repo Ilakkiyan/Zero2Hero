@@ -12,17 +12,29 @@ const createPlanEvents = vi.fn();
 vi.mock("@/lib/google", async () => {
   const actual = await vi.importActual<typeof import("@/lib/google")>("@/lib/google");
   return {
+    // Keep the real cookie helpers/constants so the routes can parse config.
     TokenExpiredError: actual.TokenExpiredError,
+    CONFIG_COOKIE: actual.CONFIG_COOKIE,
+    parseConfigCookie: actual.parseConfigCookie,
+    hasGoogleConfig: actual.hasGoogleConfig,
+    isConfigured: actual.isConfigured,
     buildAuthUrl: (...a: unknown[]) => buildAuthUrl(...a),
     exchangeCode: (...a: unknown[]) => exchangeCode(...a),
     createPlanEvents: (...a: unknown[]) => createPlanEvents(...a),
   };
 });
 
-import { TokenExpiredError } from "@/lib/google";
+import { CONFIG_COOKIE, TokenExpiredError } from "@/lib/google";
 import { GET as authGET } from "@/app/api/calendar/auth/route";
 import { GET as callbackGET } from "@/app/api/calendar/callback/route";
 import { POST as syncPOST } from "@/app/api/calendar/sync/route";
+import { POST as configPOST } from "@/app/api/calendar/config/route";
+
+const fullCfg = {
+  clientId: "cid",
+  clientSecret: "secret",
+  redirectUri: "http://localhost/api/calendar/callback",
+};
 
 afterEach(() => {
   buildAuthUrl.mockReset();
@@ -45,6 +57,34 @@ describe("GET /api/calendar/auth", () => {
     const res = await authGET(new NextRequest("http://localhost/api/calendar/auth"));
     expect(res.headers.get("location")).toContain("gcal=error");
   });
+
+  it("passes credentials from the relay cookie to buildAuthUrl", async () => {
+    buildAuthUrl.mockReturnValueOnce("https://accounts.google.com/o/oauth2/v2/auth?x=1");
+    const req = new NextRequest("http://localhost/api/calendar/auth");
+    req.cookies.set(CONFIG_COOKIE, JSON.stringify(fullCfg));
+    await authGET(req);
+    expect(buildAuthUrl).toHaveBeenCalledWith(expect.objectContaining({ clientId: "cid" }));
+  });
+});
+
+describe("POST /api/calendar/config", () => {
+  it("stores complete credentials in an httpOnly cookie", async () => {
+    const res = await configPOST(jsonRequest("http://localhost/api/calendar/config", fullCfg));
+    const data = await res.json();
+    expect(data.configured).toBe(true);
+    const cookie = res.cookies.get(CONFIG_COOKIE);
+    expect(cookie?.httpOnly).toBe(true);
+    expect(JSON.parse(cookie!.value)).toMatchObject({ clientId: "cid" });
+  });
+
+  it("clears the cookie and reports not configured when fields are missing", async () => {
+    const res = await configPOST(
+      jsonRequest("http://localhost/api/calendar/config", { clientId: "cid" }),
+    );
+    const data = await res.json();
+    expect(data.configured).toBe(false);
+    expect(res.cookies.get(CONFIG_COOKIE)?.value).toBe("");
+  });
 });
 
 describe("GET /api/calendar/callback", () => {
@@ -57,6 +97,14 @@ describe("GET /api/calendar/callback", () => {
     const cookie = res.cookies.get("gcal_token");
     expect(cookie?.value).toBe("tok-123");
     expect(cookie?.httpOnly).toBe(true);
+  });
+
+  it("passes credentials from the relay cookie to exchangeCode", async () => {
+    exchangeCode.mockResolvedValueOnce({ accessToken: "tok-123", expiresIn: 3600 });
+    const req = new NextRequest("http://localhost/api/calendar/callback?code=abc");
+    req.cookies.set(CONFIG_COOKIE, JSON.stringify(fullCfg));
+    await callbackGET(req);
+    expect(exchangeCode).toHaveBeenCalledWith("abc", expect.objectContaining({ clientId: "cid" }));
   });
 
   it("redirects to error when the provider returns an error param", async () => {

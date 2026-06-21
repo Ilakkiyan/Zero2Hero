@@ -125,7 +125,12 @@ the **🔎 Research** button will report the search backend is down.
 ### 📅 Google Calendar sync (optional)
 
 One-time OAuth setup (~5 min) — see the **Google Calendar sync setup** section
-in [`README.md`](../README.md). Add to `.env.local`:
+in [`README.md`](../README.md) or the in-app **Setup guide** button. You paste
+the Client ID + secret straight into **Settings → Google Calendar** (stored on
+your device, no `.env` needed) and click **Connect**.
+
+Advanced/self-hosted setups can instead use env vars (the UI values take
+precedence if both are present):
 
 ```bash
 GOOGLE_CLIENT_ID=...

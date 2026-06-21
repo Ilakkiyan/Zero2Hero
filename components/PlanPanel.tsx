@@ -22,6 +22,7 @@ import { nextMove } from "@/lib/nextMove";
 import { verdict, type VerdictCall } from "@/lib/verdict";
 import type { PlanChangeMeta } from "@/lib/history";
 import type { EvidenceLink, SuggestedStatus } from "@/lib/research";
+import { isGoogleConfigured, pushGoogleConfig } from "@/lib/apiClient";
 
 const stanceChip: Record<EvidenceStance, string> = {
   supports: "border-risk-low text-risk-low",
@@ -224,7 +225,14 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
       });
       if (res.status === 401) {
         // Not connected (or token expired) → start the OAuth flow; we'll
-        // auto-sync on return via the ?gcal=connected handler below.
+        // auto-sync on return via the ?gcal=connected handler below. First
+        // relay the on-device credentials so the OAuth routes can use them.
+        if (!isGoogleConfigured()) {
+          setSyncMsg("Add your Google Calendar credentials in Settings first.");
+          setSyncing(false);
+          return;
+        }
+        await pushGoogleConfig();
         window.location.href = "/api/calendar/auth";
         return;
       }

@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   apiHeaders,
+  getGoogleConfig,
   getProviderPref,
   isAzureConfigured,
+  isGoogleConfigured,
   setAzureApiKey,
   setAzureEndpoint,
+  setGoogleClientId,
+  setGoogleClientSecret,
+  setGoogleRedirectUri,
   setModelOverride,
   setProviderPref,
 } from "@/lib/apiClient";
@@ -70,5 +75,31 @@ describe("isAzureConfigured", () => {
     expect(isAzureConfigured()).toBe(false); // deployment (model override) still missing
     setModelOverride("azure", "gpt-4o-mini");
     expect(isAzureConfigured()).toBe(true);
+  });
+});
+
+describe("Google Calendar config", () => {
+  it("defaults the redirect URI to the current origin", () => {
+    const { redirectUri } = getGoogleConfig();
+    expect(redirectUri).toBe(`${window.location.origin}/api/calendar/callback`);
+  });
+
+  it("persists the client id, secret, and redirect URI", () => {
+    setGoogleClientId("cid.apps.googleusercontent.com");
+    setGoogleClientSecret("sek-ret");
+    setGoogleRedirectUri("http://localhost:3000/api/calendar/callback");
+    expect(getGoogleConfig()).toEqual({
+      clientId: "cid.apps.googleusercontent.com",
+      clientSecret: "sek-ret",
+      redirectUri: "http://localhost:3000/api/calendar/callback",
+    });
+  });
+
+  it("is configured only once id and secret are present (redirect defaults to origin)", () => {
+    expect(isGoogleConfigured()).toBe(false); // no id/secret yet
+    setGoogleClientId("cid");
+    expect(isGoogleConfigured()).toBe(false); // secret still missing
+    setGoogleClientSecret("s");
+    expect(isGoogleConfigured()).toBe(true); // redirect URI defaults to origin
   });
 });

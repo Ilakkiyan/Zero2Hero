@@ -97,6 +97,79 @@ export function isAzureConfigured(): boolean {
   return !!endpoint && !!apiKey && !!getModelOverride("azure");
 }
 
+// ── Google Calendar connection (Settings) ───────────────────────────
+// The OAuth client ID/secret/redirect URI live on the user's machine
+// (localStorage) so the desktop app needs no .env file. Because OAuth runs on
+// full-page redirects (not fetch), they can't ride as request headers like
+// Azure's; instead the client POSTs them to /api/calendar/config just before
+// connecting, which stashes them in an httpOnly cookie for the OAuth routes.
+const GOOGLE_CLIENT_ID_STORAGE = "z2h_gcal_client_id";
+const GOOGLE_CLIENT_SECRET_STORAGE = "z2h_gcal_client_secret";
+const GOOGLE_REDIRECT_URI_STORAGE = "z2h_gcal_redirect_uri";
+
+export interface GoogleCalConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+/** Default redirect URI for the current origin (must match Google Console). */
+export function defaultRedirectUri(): string {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/api/calendar/callback`;
+}
+
+export function getGoogleConfig(): GoogleCalConfig {
+  if (typeof window === "undefined") return { clientId: "", clientSecret: "", redirectUri: "" };
+  try {
+    return {
+      clientId: localStorage.getItem(GOOGLE_CLIENT_ID_STORAGE) || "",
+      clientSecret: localStorage.getItem(GOOGLE_CLIENT_SECRET_STORAGE) || "",
+      redirectUri: localStorage.getItem(GOOGLE_REDIRECT_URI_STORAGE) || defaultRedirectUri(),
+    };
+  } catch {
+    return { clientId: "", clientSecret: "", redirectUri: "" };
+  }
+}
+
+function setGoogleField(key: string, value: string): void {
+  try {
+    const v = value.trim();
+    if (v) localStorage.setItem(key, v);
+    else localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+export const setGoogleClientId = (v: string) => setGoogleField(GOOGLE_CLIENT_ID_STORAGE, v);
+export const setGoogleClientSecret = (v: string) => setGoogleField(GOOGLE_CLIENT_SECRET_STORAGE, v);
+export const setGoogleRedirectUri = (v: string) => setGoogleField(GOOGLE_REDIRECT_URI_STORAGE, v);
+
+/** True once client id, secret, and redirect URI are all present. */
+export function isGoogleConfigured(): boolean {
+  const { clientId, clientSecret, redirectUri } = getGoogleConfig();
+  return !!clientId && !!clientSecret && !!redirectUri;
+}
+
+/**
+ * Relay the stored Google credentials to the server (httpOnly cookie) so the
+ * OAuth routes can use them. Call this right before navigating to the connect
+ * flow. Resolves whether the server now considers Calendar configured.
+ */
+export async function pushGoogleConfig(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/calendar/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(getGoogleConfig()),
+    });
+    const data = (await res.json()) as { configured?: boolean };
+    return !!data.configured;
+  } catch {
+    return false;
+  }
+}
+
 /** JSON headers plus the chosen provider and any model/Azure overrides. */
 export function apiHeaders(): HeadersInit {
   const provider = providerName();

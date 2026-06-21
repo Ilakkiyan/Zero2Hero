@@ -12,20 +12,68 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
-function config() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+/**
+ * OAuth client credentials. Supplied either from the UI (Settings, relayed via a
+ * cookie) or, as a fallback, from server env vars — so the desktop app needs no
+ * .env file while a deployed instance can still use env config.
+ */
+export interface GoogleConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+/** True when a (partial) override carries all three credentials. */
+export function hasGoogleConfig(o?: Partial<GoogleConfig> | null): o is GoogleConfig {
+  return !!o && !!o.clientId && !!o.clientSecret && !!o.redirectUri;
+}
+
+/**
+ * Name of the httpOnly cookie the UI sets (just before the OAuth handshake) to
+ * relay the user's OAuth client credentials to the server. The browser never
+ * reads it back; only our own route handlers do.
+ */
+export const CONFIG_COOKIE = "gcal_cfg";
+
+/** Parse the relayed config cookie into a usable override, or null. */
+export function parseConfigCookie(raw?: string | null): Partial<GoogleConfig> | null {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw) as Partial<GoogleConfig>;
+    return {
+      clientId: typeof o.clientId === "string" ? o.clientId : undefined,
+      clientSecret: typeof o.clientSecret === "string" ? o.clientSecret : undefined,
+      redirectUri: typeof o.redirectUri === "string" ? o.redirectUri : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function config(override?: Partial<GoogleConfig> | null): GoogleConfig {
+  const clientId = override?.clientId || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = override?.clientSecret || process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = override?.redirectUri || process.env.GOOGLE_REDIRECT_URI;
   if (!clientId || !clientSecret || !redirectUri) {
     throw new Error(
-      "Google Calendar not configured — set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI",
+      "Google Calendar not configured — add your Client ID, Client Secret, and Redirect URI in Settings (or set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI)",
     );
   }
   return { clientId, clientSecret, redirectUri };
 }
 
-export function buildAuthUrl(): string {
-  const { clientId, redirectUri } = config();
+/** True when credentials are available from either the override or env. */
+export function isConfigured(override?: Partial<GoogleConfig> | null): boolean {
+  try {
+    config(override);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function buildAuthUrl(override?: Partial<GoogleConfig> | null): string {
+  const { clientId, redirectUri } = config(override);
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -38,8 +86,11 @@ export function buildAuthUrl(): string {
   return `${AUTH_URL}?${params.toString()}`;
 }
 
-export async function exchangeCode(code: string): Promise<{ accessToken: string; expiresIn: number }> {
-  const { clientId, clientSecret, redirectUri } = config();
+export async function exchangeCode(
+  code: string,
+  override?: Partial<GoogleConfig> | null,
+): Promise<{ accessToken: string; expiresIn: number }> {
+  const { clientId, clientSecret, redirectUri } = config(override);
   const res = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

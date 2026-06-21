@@ -26,23 +26,26 @@ npm install
 cp .env.example .env.local    # defaults to LLM_PROVIDER=ollama
 npm run dev                   # 3. http://localhost:3000
 
-# Optional — local web research (needs Docker). Start it alongside the app:
+# 🔎 Research works out of the box (keyless DuckDuckGo — no setup).
+# Optional: a private, self-hosted SearxNG for fully local search (needs Docker):
 docker compose -f docker-compose.searxng.yml up -d   # 🔎 Research → http://localhost:8080
 ```
 
 The home page shows a setup guide (with download links) and a live status check until the local model is ready.
 
-### Web research (also local — SearxNG)
+### Web research (works out of the box, private upgrade optional)
 
-Research plans its sub-questions and synthesizes on your **local model**; only the web *search* is external, via a local **SearxNG** instance (no key). Needs Docker:
+Research plans its sub-questions and synthesizes on your **local model**; only the web *search* is external. By default it uses a **keyless DuckDuckGo** web search, so **🔎 Research works with no setup, no Docker, and no API key**.
+
+For fully private, self-hosted search, run a local **SearxNG** and the app prefers it automatically (falling back to DuckDuckGo if it isn't reachable):
 
 ```bash
 docker compose -f docker-compose.searxng.yml up -d   # serves http://localhost:8080
 ```
 
-The JSON API is pre-enabled in [`searxng/settings.yml`](searxng/settings.yml). Then click **🔎 Research** — it searches locally. SearxNG is the **only** search backend: no API key, no third-party services, fully private. (`SEARXNG_URL` overrides the endpoint if you run SearxNG elsewhere.)
+The JSON API is pre-enabled in [`searxng/settings.yml`](searxng/settings.yml). No API keys, no third-party services. (`SEARXNG_URL` overrides the endpoint if you run SearxNG elsewhere.)
 
-In the [desktop app](#run-as-a-desktop-app-electron) this is zero-setup — the app starts SearxNG for you.
+In the [desktop app](#run-as-a-desktop-app-electron) this is zero-setup — the app starts SearxNG for you when Docker is available.
 
 ## Choosing a provider — in-app toggle
 
@@ -117,7 +120,7 @@ Zero2Hero isn't a planner that hands you a list — it tries to *prove or kill* 
 - **Launch kit** — `📣 Launch kit` gets that first version in front of its first real users via channels matched to **where this target user actually is** — the right subreddits / Show HN for an online idea, or local boards, neighborhood groups, and referrals for an offline one — with ready-to-post copy, a first-customer outreach message, and a first-week checklist ([`app/api/launchkit/route.ts`](app/api/launchkit/route.ts)).
 - **The Verdict** — the go/no-go the founder came for: **Build it / Don't build this / Not yet**, derived from the live confidence picture. Crucially, "Build" is **gated on primary (field) evidence** — a high-risk assumption that "passed" on reasoning alone isn't proof — so the verdict can't be talked into a yes ([`lib/verdict.ts`](lib/verdict.ts)).
 
-Confidence is **evidence-aware**: supporting/undermining citations nudge it (bounded) on top of assumption status ([`lib/validation.ts`](lib/validation.ts)). Everything runs offline on the local model + SearxNG.
+Confidence is **evidence-aware**: supporting/undermining citations nudge it (bounded) on top of assumption status ([`lib/validation.ts`](lib/validation.ts)). Generation runs fully local on Ollama; web research adds a keyless search (DuckDuckGo, or a private local SearxNG).
 
 ## Testing
 
@@ -164,17 +167,13 @@ The "Add to Google Calendar" button needs a Google OAuth client (one-time, ~5 mi
 1. [Google Cloud Console](https://console.cloud.google.com/) → create/select a project.
 2. **APIs & Services → Library →** enable **Google Calendar API**.
 3. **OAuth consent screen →** User type **External**, fill the basics, keep it in **Testing**, and add your Google account under **Test users** (no app verification needed in testing).
-4. **Credentials → Create credentials → OAuth client ID → Web application.** Under **Authorized redirect URIs** add exactly:
-   `http://localhost:3000/api/calendar/callback` (and your deployed URL's `/api/calendar/callback` later).
-5. Copy the client ID + secret into `.env.local`:
-   ```
-   GOOGLE_CLIENT_ID=...
-   GOOGLE_CLIENT_SECRET=...
-   GOOGLE_REDIRECT_URI=http://localhost:3000/api/calendar/callback
-   ```
-6. Restart `npm run dev`. Generate a plan → **Add to Google Calendar** → consent once → milestones appear as events.
+4. **Credentials → Create credentials → OAuth client ID → Web application.** Under **Authorized redirect URIs** add exactly the Redirect URI shown in **Settings → Google Calendar** (it's pre-filled to `http://localhost:3000/api/calendar/callback`, or your deployed URL's `/api/calendar/callback`).
+5. Paste the **Client ID** and **Client secret** into **Settings → Google Calendar** in the app, then click **Connect Google Calendar** → consent once. No restart, no `.env` file needed.
+6. Generate a plan → **Add to Google Calendar** → milestones appear as events.
 
-Tokens are short-lived and held in an httpOnly cookie (never exposed to the browser). The flow degrades gracefully if the vars are unset (the button shows a connection error rather than crashing).
+> **No `.env` needed.** Credentials entered in Settings are stored only on your device (localStorage) and relayed to your own server via an httpOnly cookie just for the OAuth handshake. Advanced/self-hosted setups can instead set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` as env vars (the UI values take precedence).
+
+Tokens are short-lived and held in an httpOnly cookie (never exposed to the browser). The flow degrades gracefully if no credentials are set (the **Connect** button stays disabled with a hint, rather than crashing).
 
 ## Security — before posting on Devpost
 
@@ -213,7 +212,7 @@ Core loop (interview → plan → draft → re-plan) is done. These deepen the "
 **Tier 2 — high impact / medium effort**
 - [x] **Voice input** for the interview (Web Speech API — free, browser-native). *Live-demo dazzle.*
 - [x] **Assumption test tracker → auto re-plan** — log each cheap test's result; feed it straight into `/api/replan`. *Closes the de-risking loop visibly.*
-- [x] **Agentic research** — one-click research agent: plans sub-questions → runs a local SearxNG search per question (live progress) → synthesizes a brief with all cited sources.
+- [x] **Agentic research** — one-click research agent: plans sub-questions → runs a keyless web search per question (DuckDuckGo by default, or a private local SearxNG; live progress) → synthesizes a brief with all cited sources.
 
 **Tier 3 — stretch**
 - [ ] **Shareable plan link** (tiny KV store → URL for mentors/teammates)

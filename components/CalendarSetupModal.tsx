@@ -4,7 +4,10 @@ interface Props {
   onClose: () => void;
 }
 
-const REDIRECT_URI = "http://localhost:3000/api/calendar/callback";
+const REDIRECT_URI =
+  typeof window !== "undefined"
+    ? `${window.location.origin}/api/calendar/callback`
+    : "http://localhost:3000/api/calendar/callback";
 
 /**
  * In-app Google Calendar setup guide. The "Add to Google Calendar" button needs
@@ -57,21 +60,24 @@ export default function CalendarSetupModal({ onClose }: Props) {
       ),
     },
     {
-      title: "Add the credentials to .env.local",
+      title: "Paste the credentials into Settings",
       body: (
-        <code className="block whitespace-pre rounded bg-surface-2 px-2 py-1.5 text-[11px] leading-relaxed text-text">
-          {`GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-GOOGLE_REDIRECT_URI=${REDIRECT_URI}`}
-        </code>
+        <>
+          Copy the <strong>Client ID</strong> and <strong>Client secret</strong> into{" "}
+          <strong>Settings → Google Calendar</strong> (no <code className="rounded bg-surface-2 px-1 py-0.5 text-[11px]">.env</code> file needed). The Redirect URI there is pre-filled to:
+          <code className="mt-1 block rounded bg-surface-2 px-2 py-1 text-[11px] text-text">
+            {REDIRECT_URI}
+          </code>
+        </>
       ),
     },
     {
-      title: "Restart & connect",
+      title: "Connect",
       body: (
         <>
-          Restart the app, then click <strong>📅 Add to Google Calendar</strong> → consent once →
-          milestones appear as events. Tokens stay in an httpOnly cookie, never in the browser.
+          Click <strong>Connect Google Calendar</strong> → consent once → milestones appear as
+          events when you use <strong>📅 Add to Google Calendar</strong>. Credentials stay on this
+          device and tokens in an httpOnly cookie, never readable by the browser.
         </>
       ),
     },

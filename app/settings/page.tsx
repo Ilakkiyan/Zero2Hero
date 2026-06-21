@@ -5,12 +5,19 @@ import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import CalendarSetupModal from "@/components/CalendarSetupModal";
 import {
+  defaultRedirectUri,
   getAzureConfig,
+  getGoogleConfig,
   getModelOverride,
   getProviderPref,
+  isGoogleConfigured,
   providerName,
+  pushGoogleConfig,
   setAzureApiKey,
   setAzureEndpoint,
+  setGoogleClientId,
+  setGoogleClientSecret,
+  setGoogleRedirectUri,
   setModelOverride,
   setProviderPref,
   type ProviderPref,
@@ -40,6 +47,9 @@ export default function SettingsPage() {
   const [cal, setCal] = useState<CalState>("unknown");
   const [calBusy, setCalBusy] = useState(false);
   const [showCalGuide, setShowCalGuide] = useState(false);
+  const [gId, setGId] = useState("");
+  const [gSecret, setGSecret] = useState("");
+  const [gRedirect, setGRedirect] = useState("");
 
   const server = providerName(provider);
 
@@ -51,6 +61,10 @@ export default function SettingsPage() {
     const az = getAzureConfig();
     setEndpoint(az.endpoint);
     setKey(az.apiKey);
+    const g = getGoogleConfig();
+    setGId(g.clientId);
+    setGSecret(g.clientSecret);
+    setGRedirect(g.redirectUri || defaultRedirectUri());
     refreshCalStatus();
   }, []);
 
@@ -74,6 +88,19 @@ export default function SettingsPage() {
     setModelOverride(server, next);
   }
 
+  function saveGId(next: string) {
+    setGId(next);
+    setGoogleClientId(next);
+  }
+  function saveGSecret(next: string) {
+    setGSecret(next);
+    setGoogleClientSecret(next);
+  }
+  function saveGRedirect(next: string) {
+    setGRedirect(next);
+    setGoogleRedirectUri(next);
+  }
+
   async function refreshCalStatus() {
     try {
       const res = await fetch("/api/calendar/status");
@@ -81,6 +108,22 @@ export default function SettingsPage() {
       setCal(data.connected ? "connected" : "disconnected");
     } catch {
       setCal("disconnected");
+    }
+  }
+
+  // Relay the on-device credentials to the server (httpOnly cookie), then kick
+  // off the full-page OAuth flow.
+  async function connectCal() {
+    setCalBusy(true);
+    try {
+      const ok = await pushGoogleConfig();
+      if (!ok) {
+        setCalBusy(false);
+        return; // missing credentials — the inline hint tells the user what's needed
+      }
+      window.location.href = "/api/calendar/auth";
+    } catch {
+      setCalBusy(false);
     }
   }
 
@@ -231,8 +274,51 @@ docker compose -f docker-compose.searxng.yml up -d`}</pre>
       {/* Google Calendar */}
       <Section
         title="Google Calendar"
-        hint="Push plan milestones to your calendar. Needs a one-time Google OAuth client."
+        hint="Push plan milestones to your calendar. Needs a one-time Google OAuth client — paste its credentials here (no .env file needed)."
       >
+        {/* Credentials — stored on this device, sent only to your own machine. */}
+        {cal !== "connected" && (
+          <div className="mb-4">
+            <label className="text-[10px] uppercase tracking-wide text-muted">Client ID</label>
+            <input
+              value={gId}
+              onChange={(e) => saveGId(e.target.value)}
+              placeholder="xxxxx.apps.googleusercontent.com"
+              autoComplete="off"
+              className="mb-3 mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
+            />
+            <label className="text-[10px] uppercase tracking-wide text-muted">Client secret</label>
+            <input
+              value={gSecret}
+              onChange={(e) => saveGSecret(e.target.value)}
+              placeholder="your Google OAuth client secret"
+              type="password"
+              autoComplete="off"
+              className="mb-3 mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
+            />
+            <label className="text-[10px] uppercase tracking-wide text-muted">Redirect URI</label>
+            <input
+              value={gRedirect}
+              onChange={(e) => saveGRedirect(e.target.value)}
+              placeholder={defaultRedirectUri()}
+              autoComplete="off"
+              className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 font-mono text-[12px] text-text outline-none placeholder:text-muted"
+            />
+            <p className="mt-1.5 text-xs text-muted">
+              Add this exact Redirect URI to your OAuth client&apos;s{" "}
+              <span className="text-text">Authorized redirect URIs</span> in the Google Cloud Console.
+              Credentials are stored only on this device. Need a client?{" "}
+              <button
+                onClick={() => setShowCalGuide(true)}
+                className="text-accent underline underline-offset-2 hover:opacity-80"
+              >
+                Setup guide
+              </button>
+              .
+            </p>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={
@@ -257,12 +343,14 @@ docker compose -f docker-compose.searxng.yml up -d`}</pre>
               {calBusy ? "…" : "Disconnect"}
             </button>
           ) : (
-            <a
-              href="/api/calendar/auth"
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90"
+            <button
+              onClick={connectCal}
+              disabled={calBusy || !isGoogleConfigured()}
+              title={isGoogleConfigured() ? "" : "Enter your Client ID, secret, and redirect URI first"}
+              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Connect Google Calendar
-            </a>
+              {calBusy ? "Connecting…" : "Connect Google Calendar"}
+            </button>
           )}
 
           <button
