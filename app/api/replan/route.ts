@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chatJSON } from "@/lib/llm";
+import { chatJSON, llmOptionsFromHeaders } from "@/lib/llm";
 import { REPLAN_SYSTEM, replanUserMessage, sharedContextMessages } from "@/lib/prompts";
 import { PlanSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
@@ -20,8 +20,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const llmProvider = req.headers.get("x-llm-provider") || undefined;
-  const llmModel = req.headers.get("x-llm-model") || undefined;
+  const llm = llmOptionsFromHeaders(req.headers);
 
   try {
     const reqBody = (await req.json()) as { plan: unknown; note: unknown; sharedContext?: unknown };
@@ -41,7 +40,7 @@ export async function POST(req: NextRequest) {
         ...sharedContextMessages(reqBody.sharedContext),
         { role: "user", content: replanUserMessage(currentPlan.data, note) },
       ],
-      { provider: llmProvider, model: llmModel, signal: req.signal },
+      { ...llm, signal: req.signal },
     );
 
     const revised = PlanSchema.safeParse(raw);

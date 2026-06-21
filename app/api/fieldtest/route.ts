@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chatJSON } from "@/lib/llm";
+import { chatJSON, llmOptionsFromHeaders } from "@/lib/llm";
 import {
   FIELDTEST_DESIGN_SYSTEM,
   FIELDTEST_CAPTURE_SYSTEM,
@@ -28,9 +28,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const provider = req.headers.get("x-llm-provider") || undefined;
-  const model = req.headers.get("x-llm-model") || undefined;
-  const opts = { provider, model, signal: req.signal };
+  const opts = { ...llmOptionsFromHeaders(req.headers), signal: req.signal };
 
   try {
     const body = await req.json();

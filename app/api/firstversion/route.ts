@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { chatStream } from "@/lib/llm";
+import { chatStream, llmOptionsFromHeaders } from "@/lib/llm";
 import { FIRSTVERSION_SYSTEM, firstVersionUserMessage } from "@/lib/prompts";
 import { PlanSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
@@ -21,8 +21,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const llmProvider = req.headers.get("x-llm-provider") || undefined;
-  const llmModel = req.headers.get("x-llm-model") || undefined;
+  const llm = llmOptionsFromHeaders(req.headers);
 
   let plan;
   try {
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
             { role: "system", content: FIRSTVERSION_SYSTEM },
             { role: "user", content: firstVersionUserMessage(plan) },
           ],
-          { provider: llmProvider, model: llmModel, signal: req.signal },
+          { ...llm, signal: req.signal },
         )) {
           send({ type: "token", value: chunk });
         }

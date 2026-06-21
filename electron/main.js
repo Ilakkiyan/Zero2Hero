@@ -14,8 +14,12 @@ const appRoot = path.join(__dirname, "..");
 // Auto-start the local SearxNG container unless explicitly disabled (Z2H_SEARXNG=0).
 const AUTO_SEARXNG = process.env.Z2H_SEARXNG !== "0";
 
-// Resolved at startup: the port the local Next server listens on (a free one is
-// picked automatically so a busy :3000 can't blank the app) and the URL we load.
+// The window loads http://localhost:<port>, and the renderer's localStorage
+// (chat history, settings) is keyed by that origin — so the port MUST stay
+// stable across launches/upgrades or history would appear lost. We prefer a
+// fixed, uncommon default and remember whatever we actually bound (see
+// resolvePort); a free port is only used if the preferred one is taken.
+const DEFAULT_PORT = 38217;
 let port = Number(process.env.PORT) || 0;
 let appUrl = "";
 
@@ -55,7 +59,7 @@ function startSearxng() {
   });
 }
 
-/** Ask the OS for an open port so we never collide with whatever's on :3000. */
+/** Ask the OS for an open port (only used if the preferred one is taken). */
 function getFreePort() {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
@@ -66,6 +70,45 @@ function getFreePort() {
       srv.close(() => resolve(p));
     });
   });
+}
+
+/** True if `p` is free to bind on localhost right now. */
+function isPortFree(p) {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.once("error", () => resolve(false));
+    srv.listen(p, "127.0.0.1", () => srv.close(() => resolve(true)));
+  });
+}
+
+const portFile = () => path.join(app.getPath("userData"), "port");
+function readSavedPort() {
+  try {
+    const p = Number(fs.readFileSync(portFile(), "utf8").trim());
+    return Number.isInteger(p) && p > 1024 && p < 65536 ? p : 0;
+  } catch {
+    return 0;
+  }
+}
+function savePort(p) {
+  try {
+    fs.writeFileSync(portFile(), String(p));
+  } catch {
+    /* non-fatal — we just won't remember the port next time */
+  }
+}
+
+/**
+ * Resolve a STABLE port so the localStorage origin (and thus chat history)
+ * survives restarts and upgrades: reuse the remembered port, else the fixed
+ * default, and only fall back to a random free port if that's already taken.
+ */
+async function resolvePort() {
+  if (isDev) return 3000; // dev server is fixed on 3000
+  const preferred = readSavedPort() || DEFAULT_PORT;
+  const chosen = (await isPortFree(preferred)) ? preferred : await getFreePort().catch(() => preferred);
+  savePort(chosen);
+  return chosen;
 }
 
 /**
@@ -176,7 +219,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null); // chrome-free window — no File/Edit/View… bar
 
-  if (!port) port = isDev ? 3000 : await getFreePort().catch(() => 3000);
+  if (!port) port = await resolvePort();
   appUrl = `http://localhost:${port}`;
 
   startSearxng(); // fire-and-forget; research works the moment it's up

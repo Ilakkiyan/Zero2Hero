@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ProviderPref } from "@/lib/apiClient";
+import Link from "next/link";
+import { isAzureConfigured, type ProviderPref } from "@/lib/apiClient";
 
 interface Health {
   provider: string;
@@ -23,12 +24,16 @@ interface Health {
 export default function SetupBanner({ provider }: { provider: ProviderPref }) {
   const [health, setHealth] = useState<Health | null>(null);
   const [checking, setChecking] = useState(true);
+  // Azure can be configured client-side (Settings) — read on mount/re-check, not
+  // during render, to avoid an SSR/hydration mismatch on localStorage.
+  const [clientAzure, setClientAzure] = useState(false);
 
   const backend = provider === "cloud" ? "azure" : "ollama";
 
   const check = useCallback(async () => {
     setChecking(true);
     setHealth(null);
+    setClientAzure(isAzureConfigured());
     try {
       const res = await fetch(`/api/health?provider=${backend}`, { cache: "no-store" });
       setHealth(await res.json());
@@ -43,14 +48,17 @@ export default function SetupBanner({ provider }: { provider: ProviderPref }) {
     check();
   }, [check]);
 
+  // Cloud is ready if the server has env creds OR the user configured it in Settings.
+  const ready = health?.ready || (provider === "cloud" && clientAzure);
+
   // Ready → slim status chip.
-  if (health?.ready) {
+  if (ready) {
     return (
       <div className="flex items-center gap-2 border-b border-border bg-surface px-6 py-1.5 text-xs text-muted">
         <span className="h-1.5 w-1.5 rounded-full bg-risk-low" />
         {provider === "cloud"
-          ? `Cloud · Azure ready · ${health.deployment ?? "deployment"}`
-          : `Local model ready · ${health.model ?? "ollama"} · private, no key`}
+          ? `Cloud · Azure ready · ${health?.deployment ?? "deployment"}`
+          : `Local model ready · ${health?.model ?? "ollama"} · private, no key`}
       </div>
     );
   }
@@ -67,18 +75,21 @@ export default function SetupBanner({ provider }: { provider: ProviderPref }) {
             </h2>
           </div>
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            Add your Azure OpenAI credentials to <Cmd>.env.local</Cmd>, then restart:
+            Add your Azure endpoint, API key, and deployment name in{" "}
+            <strong className="text-text">Settings</strong> — they stay on this device, no env
+            files or restart needed.
           </p>
-          <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-2 p-3 text-[11px] leading-relaxed text-text">{`LLM_PROVIDER=azure
-AZURE_OPENAI_ENDPOINT=https://<name>.openai.azure.com
-AZURE_OPENAI_API_KEY=<KEY 1>
-AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
-AZURE_OPENAI_API_VERSION=2024-06-01`}</pre>
           <div className="mt-3 flex items-center gap-3">
+            <Link
+              href="/settings"
+              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90"
+            >
+              Open Settings →
+            </Link>
             <button
               onClick={check}
               disabled={checking}
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm text-text transition-opacity hover:opacity-80 disabled:opacity-50"
             >
               {checking ? "Checking…" : "Re-check"}
             </button>
@@ -90,7 +101,7 @@ AZURE_OPENAI_API_VERSION=2024-06-01`}</pre>
   }
 
   // ── Local (Ollama) setup ───────────────────────────────────────────
-  const model = health?.model || "qwen2.5:14b";
+  const model = health?.model || "qwen2.5:7b";
   const running = health?.running ?? false;
 
   return (

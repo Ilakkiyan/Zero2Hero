@@ -11,8 +11,9 @@ interface Source {
 }
 type StepState = "pending" | "searching" | "done";
 
+type Backend = "local" | "web";
 type ResearchEvent =
-  | { type: "meta"; backend: "local" }
+  | { type: "meta"; backend: Backend }
   | { type: "plan"; questions: string[] }
   | { type: "step"; index: number; question: string }
   | { type: "step_done"; index: number; sourceCount: number }
@@ -52,7 +53,7 @@ export default function ResearchModal({
   const [applied, setApplied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
-  const [backend, setBackend] = useState<"local" | null>(null);
+  const [backend, setBackend] = useState<Backend | null>(null);
   const started = useRef(false);
 
   useEffect(() => {
@@ -139,7 +140,9 @@ export default function ResearchModal({
             <p className="truncate text-sm font-medium text-text">
               plan → search → synthesize
               {backend && (
-                <span className="ml-2 text-xs font-normal text-muted">· local · SearxNG</span>
+                <span className="ml-2 text-xs font-normal text-muted">
+                  {backend === "local" ? "· local · SearxNG" : "· web · DuckDuckGo"}
+                </span>
               )}
             </p>
           </div>

@@ -27,11 +27,11 @@ describe("SetupBanner", () => {
     expect(screen.getByText(/ollama pull qwen2\.5:7b/i)).toBeInTheDocument();
   });
 
-  it("shows the Azure config block when cloud is not configured", async () => {
+  it("points to Settings to configure Azure when cloud is not configured", async () => {
     mockHealth({ provider: "azure", local: false, ready: false, configured: false });
     render(<SetupBanner provider="cloud" />);
     expect(await screen.findByText(/connect azure openai/i)).toBeInTheDocument();
-    expect(screen.getByText(/AZURE_OPENAI_ENDPOINT/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open settings/i })).toHaveAttribute("href", "/settings");
   });
 
   it("shows the Azure ready chip with the deployment name", async () => {

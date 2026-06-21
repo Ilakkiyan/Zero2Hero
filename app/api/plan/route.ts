@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chatJSON, type ChatMessage } from "@/lib/llm";
+import { chatJSON, llmOptionsFromHeaders, type ChatMessage } from "@/lib/llm";
 import { PLAN_SYSTEM, sharedContextMessages } from "@/lib/prompts";
 import { PlanSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
-import { screenForHarm, SAFETY_REFUSAL } from "@/lib/safety";
+import { screenInput } from "@/lib/safety";
 
 export const runtime = "nodejs";
 
@@ -20,8 +20,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const llmProvider = req.headers.get("x-llm-provider") || undefined;
-  const llmModel = req.headers.get("x-llm-model") || undefined;
+  const llm = llmOptionsFromHeaders(req.headers);
 
   try {
     const body = (await req.json()) as { messages: ChatMessage[]; sharedContext?: unknown };
@@ -30,10 +29,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "messages[] required" }, { status: 400 });
     }
 
-    // Safety backstop: don't build a plan for a clearly harmful/illegal idea.
-    const harmful = messages.find((m) => m.role === "user" && screenForHarm(m.content).blocked);
-    if (harmful) {
-      return NextResponse.json({ error: SAFETY_REFUSAL }, { status: 422 });
+    // Safety backstop: don't build a plan from a clearly harmful/illegal idea or
+    // from spam/flooding text.
+    for (const m of messages) {
+      if (m.role !== "user") continue;
+      const screen = screenInput(m.content);
+      if (screen.blocked) {
+        return NextResponse.json({ error: screen.message }, { status: 422 });
+      }
     }
 
     const raw = await chatJSON(
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
         ...messages,
         { role: "user", content: "Produce the execution plan JSON now." },
       ],
-      { provider: llmProvider, model: llmModel, signal: req.signal },
+      { ...llm, signal: req.signal },
     );
 
     const parsed = PlanSchema.safeParse(raw);

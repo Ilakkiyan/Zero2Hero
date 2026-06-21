@@ -45,6 +45,13 @@ describe("verdict", () => {
     expect(v.call).toBe("build");
   });
 
+  it("builds when the lone high-risk assumption is proven with a field test", () => {
+    // Proving the riskiest assumption with real-world evidence should earn Build
+    // on its own — without also having to pass every other assumption first.
+    const v = verdict(planWith([{ risk: "high", status: "passed", evidence: [fieldSupport] }]));
+    expect(v.call).toBe("build");
+  });
+
   it("withholds the green light when confident but lacking primary proof", () => {
     // Two high-risk passed (confidence clears 75) but on status only — no field
     // evidence — so the verdict must NOT call "build".

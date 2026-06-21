@@ -21,8 +21,27 @@ export interface ChatOptions {
   provider?: string;
   /** Per-request model/deployment override (from Settings). Falls back to env. */
   model?: string;
+  /** Per-request Azure endpoint/key (from Settings). Fall back to env. */
+  azureEndpoint?: string;
+  azureApiKey?: string;
   /** Aborts the upstream provider fetch when the client disconnects (req.signal). */
   signal?: AbortSignal;
+}
+
+/**
+ * Pull the per-request LLM overrides the client sends (set in the Settings UI):
+ * provider + model, and — so Azure works in the desktop app without editing env
+ * files — the Azure endpoint and key. Any field left unset falls back to env.
+ */
+export function llmOptionsFromHeaders(
+  headers: Headers,
+): Pick<ChatOptions, "provider" | "model" | "azureEndpoint" | "azureApiKey"> {
+  return {
+    provider: headers.get("x-llm-provider") || undefined,
+    model: headers.get("x-llm-model") || undefined,
+    azureEndpoint: headers.get("x-azure-endpoint") || undefined,
+    azureApiKey: headers.get("x-azure-key") || undefined,
+  };
 }
 
 export interface LLMProvider {
@@ -47,10 +66,10 @@ interface StreamChunk {
  * or `/openai/v1`, so either form in .env.local works.
  */
 function azureV1(opts: ChatOptions): { url: string; apiKey: string; model: string } {
-  const root = requireEnv("AZURE_OPENAI_ENDPOINT")
+  const root = (opts.azureEndpoint?.trim() || requireEnv("AZURE_OPENAI_ENDPOINT"))
     .replace(/\/+$/, "")
     .replace(/\/openai(\/v1)?$/, "");
-  const apiKey = requireEnv("AZURE_OPENAI_API_KEY");
+  const apiKey = opts.azureApiKey?.trim() || requireEnv("AZURE_OPENAI_API_KEY");
   const model = opts.model?.trim() || requireEnv("AZURE_OPENAI_DEPLOYMENT");
   return { url: `${root}/openai/v1/chat/completions`, apiKey, model };
 }
@@ -95,7 +114,7 @@ class OllamaProvider implements LLMProvider {
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
     const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:14b";
+    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:7b";
 
     const res = await fetchWithRetry(`${base}/api/chat`, {
       method: "POST",
@@ -124,7 +143,7 @@ class OllamaProvider implements LLMProvider {
 
   async *stream(messages: ChatMessage[], opts: ChatOptions = {}): AsyncGenerator<string> {
     const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:14b";
+    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:7b";
 
     const res = await fetchWithRetry(`${base}/api/chat`, {
       method: "POST",

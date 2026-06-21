@@ -43,7 +43,7 @@ describe("runAgenticResearch — local (SearxNG)", () => {
 
     const events = await collect(runAgenticResearch(validPlan.brief));
 
-    expect(events[0]).toEqual({ type: "meta", backend: "local" });
+    expect(events.find((e) => e.type === "meta")).toEqual({ type: "meta", backend: "local" });
     expect(events.find((e) => e.type === "plan")).toMatchObject({ questions: ["q1", "q2"] });
     expect(events.filter((e) => e.type === "step_done")).toHaveLength(2);
     const text = events.filter((e) => e.type === "token").map((e: any) => e.value).join("");
@@ -64,10 +64,29 @@ describe("runAgenticResearch — local (SearxNG)", () => {
     expect(plan.questions).toHaveLength(4);
   });
 
-  it("throws when the very first search fails (backend down)", async () => {
+  it("falls back to DuckDuckGo when SearxNG is down (no Docker needed)", async () => {
     chatJSON.mockResolvedValueOnce({ questions: ["q1"] });
-    fetchWithRetry.mockRejectedValueOnce(new Error("ECONNREFUSED"));
-    await expect(collect(runAgenticResearch(validPlan.brief))).rejects.toThrow(/SearxNG not reachable/);
+    // First call (SearxNG) fails; the DDG fallback returns parseable HTML.
+    fetchWithRetry
+      .mockRejectedValueOnce(new Error("ECONNREFUSED"))
+      .mockResolvedValue({
+        ok: true,
+        text: async () =>
+          '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fb.com%2F">B title</a>' +
+          '<a class="result__snippet">about b</a>',
+      });
+    chatStream.mockReturnValueOnce(synth(["brief"]));
+
+    const events = await collect(runAgenticResearch(validPlan.brief));
+    expect(events.find((e) => e.type === "meta")).toEqual({ type: "meta", backend: "web" });
+    const sources = events.find((e) => e.type === "sources") as any;
+    expect(sources.value[0].uri).toBe("https://b.com/");
+  });
+
+  it("throws when both search backends fail", async () => {
+    chatJSON.mockResolvedValueOnce({ questions: ["q1"] });
+    fetchWithRetry.mockRejectedValue(new Error("ECONNREFUSED")); // SearxNG and DDG
+    await expect(collect(runAgenticResearch(validPlan.brief))).rejects.toThrow();
   });
 });
 

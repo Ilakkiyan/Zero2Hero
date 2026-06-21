@@ -5,24 +5,29 @@ import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import CalendarSetupModal from "@/components/CalendarSetupModal";
 import {
+  getAzureConfig,
   getModelOverride,
   getProviderPref,
   providerName,
+  setAzureApiKey,
+  setAzureEndpoint,
   setModelOverride,
   setProviderPref,
   type ProviderPref,
 } from "@/lib/apiClient";
 
 const MODEL_PLACEHOLDER: Record<string, string> = {
-  ollama: "qwen2.5:14b",
+  ollama: "qwen2.5:7b",
   azure: "your Azure deployment name",
 };
 
-// One-tap local model sizes. 7B is lighter/faster (good for trying it out on a
-// modest machine); 14B is higher quality (the default).
+const OLLAMA_DEFAULT = "qwen2.5:7b";
+
+// One-tap local model sizes. 7B is lighter/faster and the default (runs on a
+// modest machine); 14B is higher quality but heavier.
 const OLLAMA_SIZES: { model: string; label: string; hint: string }[] = [
-  { model: "qwen2.5:7b", label: "7B", hint: "lighter · ~4.7 GB · faster" },
-  { model: "qwen2.5:14b", label: "14B", hint: "better quality · ~9 GB · default" },
+  { model: "qwen2.5:7b", label: "7B", hint: "lighter · ~4.7 GB · faster · default" },
+  { model: "qwen2.5:14b", label: "14B", hint: "better quality · ~9 GB · heavier" },
 ];
 
 type CalState = "unknown" | "connected" | "disconnected";
@@ -30,6 +35,8 @@ type CalState = "unknown" | "connected" | "disconnected";
 export default function SettingsPage() {
   const [provider, setProvider] = useState<ProviderPref>("local");
   const [model, setModel] = useState("");
+  const [azureEndpoint, setEndpoint] = useState("");
+  const [azureKey, setKey] = useState("");
   const [cal, setCal] = useState<CalState>("unknown");
   const [calBusy, setCalBusy] = useState(false);
   const [showCalGuide, setShowCalGuide] = useState(false);
@@ -41,8 +48,20 @@ export default function SettingsPage() {
     const p = getProviderPref();
     setProvider(p);
     setModel(getModelOverride(providerName(p)));
+    const az = getAzureConfig();
+    setEndpoint(az.endpoint);
+    setKey(az.apiKey);
     refreshCalStatus();
   }, []);
+
+  function saveEndpoint(next: string) {
+    setEndpoint(next);
+    setAzureEndpoint(next);
+  }
+  function saveKey(next: string) {
+    setKey(next);
+    setAzureApiKey(next);
+  }
 
   function changeProvider(p: ProviderPref) {
     setProviderPref(p);
@@ -108,15 +127,44 @@ export default function SettingsPage() {
         </div>
       </Section>
 
+      {/* Azure connection (cloud only) — endpoint + key live on this machine and
+          ride along as request headers, so the desktop app needs no env files. */}
+      {provider === "cloud" && (
+        <Section
+          title="Azure connection"
+          hint="Your Azure OpenAI endpoint and key, stored only on this device. Set the deployment name under Model below."
+        >
+          <label className="text-[10px] uppercase tracking-wide text-muted">Endpoint</label>
+          <input
+            value={azureEndpoint}
+            onChange={(e) => saveEndpoint(e.target.value)}
+            placeholder="https://<resource>.openai.azure.com"
+            className="mb-3 mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
+          />
+          <label className="text-[10px] uppercase tracking-wide text-muted">API key</label>
+          <input
+            value={azureKey}
+            onChange={(e) => saveKey(e.target.value)}
+            type="password"
+            autoComplete="off"
+            placeholder="your Azure OpenAI key"
+            className="mt-1 w-full rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
+          />
+          <p className="mt-1.5 text-xs text-muted">
+            Stored locally and sent only to your own machine, which forwards requests to Azure.
+          </p>
+        </Section>
+      )}
+
       {/* Model */}
       <Section
         title="Model"
-        hint={`The model used for the ${provider === "local" ? "Local (Ollama)" : "Cloud (Azure)"} provider. Leave blank to use the server default.`}
+        hint={`The ${provider === "local" ? "model" : "deployment name"} used for the ${provider === "local" ? "Local (Ollama)" : "Cloud (Azure)"} provider. Leave blank to use the server default.`}
       >
         {server === "ollama" && (
           <div className="mb-2 flex flex-wrap gap-2">
             {OLLAMA_SIZES.map((s) => {
-              const active = model === s.model || (!model && s.model === "qwen2.5:14b");
+              const active = model === s.model || (!model && s.model === OLLAMA_DEFAULT);
               return (
                 <button
                   key={s.model}

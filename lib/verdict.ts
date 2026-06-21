@@ -44,7 +44,12 @@ export function verdict(plan: Plan): Verdict {
     };
   }
 
-  const decided = s.unresolvedHighRisk === 0 && s.confidence >= 75;
+  // "Decided" = every high-risk assumption is resolved (passed) and overall
+  // confidence has cleared the bar. The bar is 70 (not higher) so that proving
+  // your riskiest assumption with a real field test — which is what actually
+  // earns a Build below — is enough on its own, instead of also forcing every
+  // medium/low assumption to pass first.
+  const decided = s.unresolvedHighRisk === 0 && s.confidence >= 70;
 
   // 2. Decided AND backed by real-world proof → green light.
   if (decided && hasPrimaryProof(plan)) {

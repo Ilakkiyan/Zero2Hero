@@ -4,7 +4,7 @@ import { validPlan } from "@/test/fixtures/plan";
 import { asyncChunks, collectNdjson, jsonRequest, throwingStream } from "@/test/helpers";
 
 const chatStream = vi.fn();
-vi.mock("@/lib/llm", () => ({ chatStream: (...args: unknown[]) => chatStream(...args) }));
+vi.mock("@/lib/llm", async (orig) => ({ ...(await orig() as Record<string, unknown>), chatStream: (...args: unknown[]) => chatStream(...args) }));
 
 import { POST } from "@/app/api/firstversion/route";
 

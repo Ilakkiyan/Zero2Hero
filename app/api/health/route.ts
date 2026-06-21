@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ provider: want, local: false, ready: true });
   }
 
-  const model = process.env.OLLAMA_MODEL || "qwen2.5:14b";
+  const model = process.env.OLLAMA_MODEL || "qwen2.5:7b";
   const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
   try {
     const res = await fetch(`${base}/api/tags`, { cache: "no-store" });

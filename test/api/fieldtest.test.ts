@@ -4,7 +4,7 @@ import { validPlan } from "@/test/fixtures/plan";
 import { jsonRequest } from "@/test/helpers";
 
 const chatJSON = vi.fn();
-vi.mock("@/lib/llm", () => ({ chatJSON: (...args: unknown[]) => chatJSON(...args) }));
+vi.mock("@/lib/llm", async (orig) => ({ ...(await orig() as Record<string, unknown>), chatJSON: (...args: unknown[]) => chatJSON(...args) }));
 
 import { POST } from "@/app/api/fieldtest/route";
 

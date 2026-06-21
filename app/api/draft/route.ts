@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { chatStream } from "@/lib/llm";
+import { chatStream, llmOptionsFromHeaders } from "@/lib/llm";
 import { DRAFT_SYSTEM, draftUserMessage } from "@/lib/prompts";
 import { IdeaBriefSchema, MilestoneSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
@@ -25,8 +25,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const llmProvider = req.headers.get("x-llm-provider") || undefined;
-  const llmModel = req.headers.get("x-llm-model") || undefined;
+  const llm = llmOptionsFromHeaders(req.headers);
 
   let body: z.infer<typeof BodySchema>;
   try {
@@ -48,7 +47,7 @@ export async function POST(req: NextRequest) {
             { role: "system", content: DRAFT_SYSTEM },
             { role: "user", content: draftUserMessage(body.brief, body.milestone) },
           ],
-          { provider: llmProvider, model: llmModel, signal: req.signal },
+          { ...llm, signal: req.signal },
         )) {
           send({ type: "token", value: chunk });
         }

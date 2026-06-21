@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
-import { chatStream, type ChatMessage } from "@/lib/llm";
+import { chatStream, llmOptionsFromHeaders, type ChatMessage } from "@/lib/llm";
 import { INTERVIEW_SYSTEM, sharedContextMessages } from "@/lib/prompts";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
-import { screenForHarm, SAFETY_REFUSAL } from "@/lib/safety";
+import { screenInput } from "@/lib/safety";
 
 export const runtime = "nodejs";
 
@@ -26,8 +26,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const llmProvider = req.headers.get("x-llm-provider") || undefined;
-  const llmModel = req.headers.get("x-llm-model") || undefined;
+  const llm = llmOptionsFromHeaders(req.headers);
 
   let messages: ChatMessage[];
   let contextMessages: ChatMessage[] = [];
@@ -41,16 +40,17 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: message }), { status: 400 });
   }
 
-  // Safety backstop: screen the latest user turn for clearly harmful intent
-  // before spending any model call. The prompt enforces refusal too; this is
-  // defense-in-depth (and catches a jailbroken model).
+  // Safety backstop: screen the latest user turn for clearly harmful intent or
+  // spam/flooding before spending any model call. The prompt enforces refusal
+  // too; this is defense-in-depth (and catches a jailbroken model).
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  if (lastUser && screenForHarm(lastUser.content).blocked) {
+  const screen = lastUser ? screenInput(lastUser.content) : { blocked: false };
+  if (screen.blocked) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
         const send = (o: unknown) => controller.enqueue(encoder.encode(JSON.stringify(o) + "\n"));
-        send({ type: "token", value: SAFETY_REFUSAL });
+        send({ type: "token", value: screen.message });
         send({ type: "done", readyToPlan: false });
         controller.close();
       },
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       try {
         for await (const chunk of chatStream(
           [{ role: "system", content: INTERVIEW_SYSTEM }, ...contextMessages, ...messages],
-          { provider: llmProvider, model: llmModel, signal: req.signal },
+          { ...llm, signal: req.signal },
         )) {
           buf += chunk;
 

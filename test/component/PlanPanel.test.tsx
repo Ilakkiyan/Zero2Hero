@@ -74,12 +74,18 @@ describe("PlanPanel", () => {
     expect(meta).toMatchObject({ kind: "status", assumptionId: "a1" });
   });
 
-  it("does NOT log a timeline event for result-note typing", async () => {
+  it("commits the result note on blur, not per keystroke, and logs no timeline event", async () => {
     const onPlanChange = vi.fn();
     renderPanel({ onPlanChange });
-    await userEvent.type(screen.getAllByPlaceholderText(/what happened when you tested/i)[0], "x");
-    // onPlanChange is called, but without event metadata (no per-keystroke history spam).
-    expect(onPlanChange.mock.calls.every((c) => c[1] === undefined)).toBe(true);
+    const input = screen.getAllByPlaceholderText(/what happened when you tested/i)[0];
+    await userEvent.type(input, "people loved it");
+    // Typing stays local — no workspace churn until the field is committed.
+    expect(onPlanChange).not.toHaveBeenCalled();
+    await userEvent.tab(); // blur → commit
+    expect(onPlanChange).toHaveBeenCalledOnce();
+    const [next, meta] = onPlanChange.mock.calls[0];
+    expect(next.assumptions[0].resultNote).toBe("people loved it");
+    expect(meta).toBeUndefined(); // no per-keystroke history spam
   });
 
   it("disables Replan-from-result for an untested assumption and fires it for a tested one", async () => {

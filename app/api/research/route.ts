@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { runAgenticResearch } from "@/lib/research";
+import { llmOptionsFromHeaders } from "@/lib/llm";
 import { IdeaBriefSchema } from "@/lib/schema";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
 
@@ -28,8 +29,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const llmProvider = req.headers.get("x-llm-provider") || undefined;
-  const llmModel = req.headers.get("x-llm-model") || undefined;
+  const llm = llmOptionsFromHeaders(req.headers);
 
   let brief;
   let assumptions: { id: string; claim: string; risk: string }[] = [];
@@ -69,8 +69,7 @@ export async function POST(req: NextRequest) {
         const searxUrl = process.env.SEARXNG_URL || "http://localhost:8080";
         for await (const event of runAgenticResearch(brief, {
           searxUrl,
-          provider: llmProvider,
-          model: llmModel,
+          ...llm,
           assumptions,
         })) {
           send(event);

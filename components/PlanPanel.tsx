@@ -89,6 +89,10 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
   const [fieldTestFor, setFieldTestFor] = useState<Assumption | null>(null);
   const [showCalSetup, setShowCalSetup] = useState(false);
   const [note, setNote] = useState("");
+  // Result-note edits stay in local state while typing and commit to the plan on
+  // blur. Committing every keystroke re-serialized the whole workspace to
+  // localStorage and re-rendered the app, which made typing here sluggish.
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
 
   function submitReplan() {
     const t = note.trim();
@@ -108,6 +112,18 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
       },
       meta,
     );
+  }
+
+  /** Commit a pending result-note edit to the plan (called on blur / replan). */
+  function commitNote(a: Assumption) {
+    const draft = noteDrafts[a.id];
+    if (draft === undefined) return;
+    if (draft !== a.resultNote) updateAssumption(a.id, { resultNote: draft });
+    setNoteDrafts((d) => {
+      const next = { ...d };
+      delete next[a.id];
+      return next;
+    });
   }
 
   /**
@@ -457,14 +473,19 @@ export default function PlanPanel({ plan, history, onPlanChange, onReplan, repla
                 </button>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <input
-                    value={a.resultNote}
-                    onChange={(e) => updateAssumption(a.id, { resultNote: e.target.value })}
+                    value={noteDrafts[a.id] ?? a.resultNote}
+                    onChange={(e) => setNoteDrafts((d) => ({ ...d, [a.id]: e.target.value }))}
+                    onBlur={() => commitNote(a)}
                     placeholder="What happened when you tested it?"
                     className="min-w-0 flex-1 rounded-lg bg-surface-2 px-3 py-2 text-sm text-text outline-none placeholder:text-muted"
                   />
                   <button
                     type="button"
-                    onClick={() => replanFromAssumption(a)}
+                    onClick={() => {
+                      const live = noteDrafts[a.id] ?? a.resultNote;
+                      commitNote(a);
+                      replanFromAssumption({ ...a, resultNote: live });
+                    }}
                     disabled={replanning || a.status === "untested"}
                     className="shrink-0 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
                   >

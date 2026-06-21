@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { chatJSON, fetchWithRetry, getProvider } from "@/lib/llm";
+import { chat, chatJSON, fetchWithRetry, getProvider, llmOptionsFromHeaders } from "@/lib/llm";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -21,6 +21,58 @@ describe("getProvider", () => {
   it("defaults to ollama when nothing is configured", () => {
     vi.stubEnv("LLM_PROVIDER", "");
     expect(getProvider(undefined).name).toBe("ollama");
+  });
+});
+
+describe("llmOptionsFromHeaders", () => {
+  it("pulls provider, model, and Azure creds from request headers", () => {
+    const headers = new Headers({
+      "x-llm-provider": "azure",
+      "x-llm-model": "gpt-4o-mini",
+      "x-azure-endpoint": "https://x.openai.azure.com",
+      "x-azure-key": "secret",
+    });
+    expect(llmOptionsFromHeaders(headers)).toEqual({
+      provider: "azure",
+      model: "gpt-4o-mini",
+      azureEndpoint: "https://x.openai.azure.com",
+      azureApiKey: "secret",
+    });
+  });
+
+  it("leaves unset fields undefined", () => {
+    expect(llmOptionsFromHeaders(new Headers())).toEqual({
+      provider: undefined,
+      model: undefined,
+      azureEndpoint: undefined,
+      azureApiKey: undefined,
+    });
+  });
+});
+
+describe("Azure provider", () => {
+  it("uses per-request endpoint/key/deployment over env", async () => {
+    // Env points somewhere else; the request-scoped creds must win.
+    vi.stubEnv("AZURE_OPENAI_ENDPOINT", "https://env.openai.azure.com");
+    vi.stubEnv("AZURE_OPENAI_API_KEY", "env-key");
+    vi.stubEnv("AZURE_OPENAI_DEPLOYMENT", "env-deploy");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: "hi" } }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await chat([{ role: "user", content: "hi" }], {
+      provider: "azure",
+      azureEndpoint: "https://client.openai.azure.com",
+      azureApiKey: "client-key",
+      model: "client-deploy",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://client.openai.azure.com/openai/v1/chat/completions");
+    expect((init.headers as Record<string, string>)["api-key"]).toBe("client-key");
+    expect(JSON.parse(init.body as string).model).toBe("client-deploy");
   });
 });
 

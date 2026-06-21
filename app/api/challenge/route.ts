@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { chatStream, type ChatMessage } from "@/lib/llm";
+import { chatStream, llmOptionsFromHeaders, type ChatMessage } from "@/lib/llm";
 import { CHALLENGE_SYSTEM, challengeOpenMessage } from "@/lib/prompts";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
 
@@ -20,8 +20,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const llmProvider = req.headers.get("x-llm-provider") || undefined;
-  const llmModel = req.headers.get("x-llm-model") || undefined;
+  const llm = llmOptionsFromHeaders(req.headers);
 
   let assumption: { claim: string; risk: string; cheapTest: string };
   let messages: ChatMessage[];
@@ -50,7 +49,7 @@ export async function POST(req: NextRequest) {
             { role: "user", content: challengeOpenMessage(assumption) },
             ...messages,
           ],
-          { provider: llmProvider, model: llmModel, signal: req.signal },
+          { ...llm, signal: req.signal },
         )) {
           send({ type: "token", value: chunk });
         }
