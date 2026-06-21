@@ -46,6 +46,10 @@ export default function InterviewPanel({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The in-flight assistant reply lives in LOCAL state while streaming, so each
+  // token re-renders only this panel — not the whole app (which would re-serialize
+  // the workspace and re-render the plan on every token). Committed once on done.
+  const [streaming, setStreaming] = useState<string | null>(null);
 
   // Voice dictation: base holds committed text; interim previews live on top.
   const baseRef = useRef("");
@@ -96,14 +100,18 @@ export default function InterviewPanel({
         body: JSON.stringify({ messages: base, sharedContext }),
       });
 
-      // Stream tokens and grow the assistant bubble live.
+      // Stream tokens into LOCAL state (cheap re-renders); commit to the shared
+      // workspace just once when the reply is complete.
       let assistant = "";
       const { readyToPlan } = await readTokenStream(res, (text) => {
         assistant += text;
-        setMessages([...base, { role: "assistant", content: assistant }]);
+        setStreaming(assistant);
       });
+      setStreaming(null);
+      setMessages([...base, { role: "assistant", content: assistant }]);
       if (readyToPlan) setReadyToPlan(true);
     } catch (err) {
+      setStreaming(null);
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
@@ -173,7 +181,15 @@ export default function InterviewPanel({
           </div>
         ))}
 
-        {(loading || refining) &&
+        {streaming !== null && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl bg-transparent px-4 py-2.5 text-sm leading-relaxed text-text">
+              {streaming || <span className="text-muted">…</span>}
+            </div>
+          </div>
+        )}
+
+        {((loading && streaming === null) || refining) &&
           (messages.length === 0 || messages[messages.length - 1].role === "user") && (
             <p className="text-sm text-muted">{refining ? "Revising the plan…" : "Thinking…"}</p>
           )}
