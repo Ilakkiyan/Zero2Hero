@@ -71,9 +71,9 @@ export function verdict(plan: Plan): Verdict {
   if (decided) {
     return {
       call: "keep-testing",
-      headline: "Almost — get one piece of real proof",
-      reason: `Confidence is ${s.confidence}, but it's resting on reasoning and web reading, not real-world results.`,
-      action: "Run one field test on your riskiest assumption to earn the green light.",
+      headline: "Almost — log one real-world result",
+      reason: `Confidence is ${s.confidence}, but it's resting on reasoning and web reading. A real-world result counts only when you log it as a field test — describing it in chat doesn't.`,
+      action: 'Hit "Test it for real" on your riskiest assumption and record what happened — that earns the green light.',
     };
   }
 

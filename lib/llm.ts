@@ -114,7 +114,7 @@ class OllamaProvider implements LLMProvider {
 
   async chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
     const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:7b";
+    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:14b";
 
     const res = await fetchWithRetry(`${base}/api/chat`, {
       method: "POST",
@@ -143,7 +143,7 @@ class OllamaProvider implements LLMProvider {
 
   async *stream(messages: ChatMessage[], opts: ChatOptions = {}): AsyncGenerator<string> {
     const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
-    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:7b";
+    const model = opts.model?.trim() || process.env.OLLAMA_MODEL || "qwen2.5:14b";
 
     const res = await fetchWithRetry(`${base}/api/chat`, {
       method: "POST",

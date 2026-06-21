@@ -17,17 +17,17 @@ import {
 } from "@/lib/apiClient";
 
 const MODEL_PLACEHOLDER: Record<string, string> = {
-  ollama: "qwen2.5:7b",
+  ollama: "qwen2.5:14b",
   azure: "your Azure deployment name",
 };
 
-const OLLAMA_DEFAULT = "qwen2.5:7b";
+const OLLAMA_DEFAULT = "qwen2.5:14b";
 
-// One-tap local model sizes. 7B is lighter/faster and the default (runs on a
-// modest machine); 14B is higher quality but heavier.
+// One-tap local model sizes. 14B is higher quality and the default (best for the
+// strict judgment steps); 7B is lighter/faster for a modest machine.
 const OLLAMA_SIZES: { model: string; label: string; hint: string }[] = [
-  { model: "qwen2.5:7b", label: "7B", hint: "lighter · ~4.7 GB · faster · default" },
-  { model: "qwen2.5:14b", label: "14B", hint: "better quality · ~9 GB · heavier" },
+  { model: "qwen2.5:14b", label: "14B", hint: "better quality · ~9 GB · default" },
+  { model: "qwen2.5:7b", label: "7B", hint: "lighter · ~4.7 GB · faster" },
 ];
 
 type CalState = "unknown" | "connected" | "disconnected";

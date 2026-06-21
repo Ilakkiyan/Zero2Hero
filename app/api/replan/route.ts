@@ -62,7 +62,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ plan: revised.data });
+    // The replan output schema has no evidence field, so the model never echoes
+    // it. Carry accumulated evidence over to assumptions that persist — otherwise
+    // a replan silently wipes all validation progress (and the real-world proof
+    // the verdict depends on).
+    const prevById = new Map(currentPlan.data.assumptions.map((a) => [a.id, a]));
+    const mergedPlan = {
+      ...revised.data,
+      assumptions: revised.data.assumptions.map((a) => {
+        const prev = prevById.get(a.id);
+        return prev && (a.evidence?.length ?? 0) === 0 ? { ...a, evidence: prev.evidence } : a;
+      }),
+    };
+
+    return NextResponse.json({ plan: mergedPlan });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -123,7 +123,7 @@ export default function SetupBanner({ provider }: { provider: ProviderPref }) {
   }
 
   // ── Local (Ollama) setup ───────────────────────────────────────────
-  const model = health?.model || "qwen2.5:7b";
+  const model = health?.model || "qwen2.5:14b";
   const running = health?.running ?? false;
 
   return (

@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   // installed exactly; with no choice we report whichever matching model is
   // actually pulled, so the UI autodetects the installed one.
   const requested = new URL(req.url).searchParams.get("model")?.trim() || "";
-  const wantModel = requested || process.env.OLLAMA_MODEL || "qwen2.5:7b";
+  const wantModel = requested || process.env.OLLAMA_MODEL || "qwen2.5:14b";
   const base = (process.env.OLLAMA_BASE_URL || "http://localhost:11434").replace(/\/$/, "");
   try {
     const res = await fetch(`${base}/api/tags`, { cache: "no-store" });

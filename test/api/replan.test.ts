@@ -46,4 +46,36 @@ describe("POST /api/replan", () => {
     const messages = chatJSON.mock.calls[0][0] as { role: string; content: string }[];
     expect(messages.some((m) => m.content.includes("the cold emails bounced"))).toBe(true);
   });
+
+  it("carries accumulated evidence over so a replan never wipes validation progress", async () => {
+    // The current plan has a field test attached to a1; the model's revised plan
+    // (no evidence field) must not erase it.
+    const withEvidence = {
+      ...validPlan,
+      assumptions: validPlan.assumptions.map((a) =>
+        a.id === "a1"
+          ? {
+              ...a,
+              evidence: [
+                {
+                  id: "e1",
+                  kind: "field",
+                  source: { title: "Vendor calls", uri: "" },
+                  snippet: "3 of 3 vendors partnered",
+                  stance: "supports",
+                  createdAt: "2026-01-01T00:00:00.000Z",
+                },
+              ],
+            }
+          : a,
+      ),
+    };
+    // Model returns the same assumptions but, per its schema, with no evidence.
+    chatJSON.mockResolvedValueOnce(validPlan);
+    const res = await POST(req({ plan: withEvidence, note: "vendors are in" }));
+    const { plan } = await res.json();
+    const a1 = plan.assumptions.find((a: { id: string }) => a.id === "a1");
+    expect(a1.evidence).toHaveLength(1);
+    expect(a1.evidence[0].kind).toBe("field");
+  });
 });

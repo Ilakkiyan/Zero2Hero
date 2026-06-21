@@ -1,6 +1,6 @@
 {
   "name": "zero2hero",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "The honest AI cofounder for student builders — turn an idea into a real plan, pressure-test it with real evidence, and get an honest go/no-go verdict.",
   "author": "Zero2Hero",
@@ -14,8 +14,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:all": "npm run build && npm run test && npm run test:e2e",
-    "llm:pull": "ollama pull qwen2.5:7b",
-    "llm:pull:14b": "ollama pull qwen2.5:14b",
+    "llm:pull": "ollama pull qwen2.5:14b",
+    "llm:pull:7b": "ollama pull qwen2.5:7b",
     "llm:smoke": "node scripts/ollama-smoke.mjs",
     "desktop:dev": "concurrently -k \"next dev\" \"wait-on http://localhost:3000 && cross-env ELECTRON_DEV=1 electron .\"",
     "desktop": "next build && electron .",

@@ -59,26 +59,26 @@ describe("GET /api/health", () => {
   });
 
   it("autodetects the installed model when none is explicitly chosen", async () => {
-    vi.stubEnv("OLLAMA_MODEL", ""); // no configured default → falls back to qwen2.5:7b
+    vi.stubEnv("OLLAMA_MODEL", ""); // no configured default → falls back to qwen2.5:14b
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ models: [{ name: "qwen2.5:14b" }] }) }),
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ models: [{ name: "qwen2.5:7b" }] }) }),
     );
     const data = await (await get("ollama")).json();
-    // 7b isn't installed but a qwen2.5 variant is → report the installed one, ready.
-    expect(data).toMatchObject({ modelPulled: true, ready: true, model: "qwen2.5:14b" });
+    // The 14b default isn't installed but a qwen2.5 variant is → report it, ready.
+    expect(data).toMatchObject({ modelPulled: true, ready: true, model: "qwen2.5:7b" });
   });
 
   it("honours an explicit ?model= choice and marks it unpulled if absent", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ models: [{ name: "qwen2.5:7b" }] }) }),
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ models: [{ name: "qwen2.5:14b" }] }) }),
     );
     const res = await GET(
-      new NextRequest("http://localhost/api/health?provider=ollama&model=qwen2.5:14b"),
+      new NextRequest("http://localhost/api/health?provider=ollama&model=qwen2.5:7b"),
     );
     const data = await res.json();
-    // Explicit 14b chosen but only 7b installed → show 14b, not ready.
-    expect(data).toMatchObject({ model: "qwen2.5:14b", modelPulled: false, ready: false });
+    // Explicit 7b chosen but only 14b installed → show 7b, not ready.
+    expect(data).toMatchObject({ model: "qwen2.5:7b", modelPulled: false, ready: false });
   });
 });
