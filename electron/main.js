@@ -68,7 +68,12 @@ function getFreePort() {
   });
 }
 
-/** In production, start `next start` using Electron's bundled Node. */
+/**
+ * In production, start `next start` using Electron's bundled Node.
+ * NOTE: this spawns with cwd=appRoot, so the build must ship unpacked
+ * (`"asar": false` in package.json). A path inside app.asar is a *file*, not a
+ * real directory — the server can't launch from it and the window goes blank.
+ */
 function startServer() {
   if (isDev) return; // dev: `next dev` is already running (see scripts)
   const nextBin = require.resolve("next/dist/bin/next", { paths: [appRoot] });

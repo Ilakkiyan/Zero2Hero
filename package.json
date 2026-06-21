@@ -62,7 +62,6 @@
       "package.json",
       "next.config.mjs"
     ],
-    "_comment_asar": "asar OFF on purpose: `next start` is spawned with cwd=app root, and a path inside app.asar is a file, not a real dir — the server can't launch from it and the window goes blank. Shipping unpacked keeps the build simple and reliable.",
     "asar": false,
     "extraResources": [
       "docker-compose.searxng.yml",
