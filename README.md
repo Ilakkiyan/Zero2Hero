@@ -157,22 +157,6 @@ RUN_LOCAL_LLM=1 npm run llm:smoke # asserts a non-empty /api/chat response
 
 Without `RUN_LOCAL_LLM=1` the smoke is skipped, so it never blocks a normal run.
 
-## Deploy to Vercel
-
-Standard Next.js app — Vercel auto-detects it. No database, no build config needed.
-
-1. [vercel.com/new](https://vercel.com/new) → **Import** the `Ilakkiyan/Zero2Hero` GitHub repo → **Deploy**.
-2. **Environment variables** (Project → Settings → Environment Variables):
-   - *(for cloud generation)* `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` — or leave the toggle on **💻 Local** (Ollama).
-   - *(optional)* `SEARXNG_URL` if you host SearxNG separately for 🔎 Research.
-   - *(optional, for Calendar)* `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
-     `GOOGLE_REDIRECT_URI` = `https://<your-app>.vercel.app/api/calendar/callback`
-3. **If using Calendar:** add that same `https://<your-app>.vercel.app/api/calendar/callback`
-   to the OAuth client's **Authorized redirect URIs** in Google Cloud Console.
-4. Redeploy after setting env vars. Done — share the `.vercel.app` URL.
-
-> The agentic research route is capped at `maxDuration = 60` for the Hobby plan; raise to 300 on Pro if needed.
-
 ## Google Calendar sync setup
 
 The "Add to Google Calendar" button needs a Google OAuth client (one-time, ~5 min):
@@ -203,7 +187,7 @@ The API key is handled so a public repo/demo can't leak or get spammed:
 
 **Do this before going public (the real protection):**
 1. **Restrict the key** to the minimum scope your provider allows (e.g. an Azure OpenAI resource limited to the one deployment, with an IP/referrer restriction if your host has a fixed one).
-2. **Put the key only in your host's env vars** (e.g. Vercel project settings), never committed.
+2. **Put the key only in your host's env vars** (your hosting provider's project settings), never committed.
 3. **Rotate the key** right before the demo and again after — a fresh key for the public window limits blast radius.
 4. For a hosted demo with real traffic, swap the in-memory limiter for a durable one (Upstash/Redis).
 

@@ -84,7 +84,7 @@ Shareable validated-plan links for mentors, a willingness-to-pay test with real 
 ## Built with
 
 ```
-typescript, javascript, next.js, react, node.js, tailwindcss, zod, electron, electron-builder, ollama, qwen2.5, azure-openai, searxng, docker, docker-compose, google-calendar-api, google-oauth, web-speech-api, localstorage, ndjson, vitest, playwright, testing-library, msw, github-actions, vercel
+typescript, javascript, next.js, react, node.js, tailwindcss, zod, electron, electron-builder, ollama, qwen2.5, azure-openai, searxng, docker, docker-compose, google-calendar-api, google-oauth, web-speech-api, localstorage, ndjson, vitest, playwright, testing-library, msw, github-actions
 ```
 
 ---
